@@ -1,4 +1,9 @@
-# https://github.com/github/gitignore/blob/main/Node.gitignore
+### custom
+
+.vscode-peer*
+
+
+### https://github.com/github/gitignore/blob/main/Node.gitignore
 
 # Logs
 logs

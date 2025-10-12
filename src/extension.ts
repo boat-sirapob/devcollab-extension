@@ -1,26 +1,79 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
-import * as vscode from 'vscode';
+import * as vscode from "vscode";
 
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
-export function activate(context: vscode.ExtensionContext) {
+import { Peer } from "peerjs";
 
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
-	// This line of code will only be executed once when your extension is activated
-	console.log('Congratulations, your extension "devcollab" is now active!');
+function openConnection() {  
+  // const peer = new Peer("devcollab", {
+  //   host: "localhost",
+  //   port: 9000,
+  //   path: "/myapp",
+  // });
+  const peer = new Peer();
 
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with registerCommand
-	// The commandId parameter must match the command field in package.json
-	const disposable = vscode.commands.registerCommand('devcollab.helloWorld', () => {
-		// The code you place here will be executed every time your command is executed
-		// Display a message box to the user
-		vscode.window.showInformationMessage('Hello World from DevCollab!');
-	});
+  vscode.window.showInformationMessage("Opening connection...");
+  
+  peer.on("open", id => {
+    console.log(`Opened connection with peer id: ${id}`);
+    vscode.window.showInformationMessage(`Peer ID: ${id}`);
+  });
 
-	context.subscriptions.push(disposable);
+  peer.on("error", err => {
+    vscode.window.showErrorMessage(`PeerJS error: ${err.type} - ${err.message}`);
+    console.error("PeerJS error:", err);
+  });
+
+  peer.on("disconnected", () => {
+    console.log("PeerJS disconnected");
+  });
+
+  peer.on("close", () => {
+    console.log("PeerJS connection closed");
+  });
 }
 
-// This method is called when your extension is deactivated
+// function connectToPeer() {
+//   var peerId: string | null;
+
+//   vscode.window
+//     .showInputBox({
+//       prompt: "Enter peer ID",
+//       title: "Connect to peer",
+//     })
+//     .then((res) => {
+//       vscode.window.showInformationMessage(`${res}`);
+//       peerId = res || null;
+
+//       if (peerId !== null) {
+//         const peer = new Peer("devcollab", {
+//           host: "localhost",
+//           port: 9000,
+//           path: "/myapp",
+//         });
+//         const conn = peer.connect(peerId);
+//         conn.on("open", () => {
+//           conn.send("Test");
+//         });
+//       }
+//     });
+// }
+
+export function activate(context: vscode.ExtensionContext) {
+  const commands = [
+    {
+      command: "devcollab.openConnection",
+      callback: openConnection
+    },
+    // {
+    //   command: "devcollab.connect",
+    //   callback: connectToPeer
+    // },
+  ];
+
+  commands.forEach(c => {
+    const disposable = vscode.commands.registerCommand(c.command, c.callback);
+  
+    context.subscriptions.push(disposable);
+  });
+}
+
 export function deactivate() {}
