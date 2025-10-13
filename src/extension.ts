@@ -1,6 +1,9 @@
 import * as vscode from "vscode";
 
-import { Peer } from "peerjs";
+import WebSocket from "ws";
+
+// import { Peer } from "peerjs";
+
 
 function openConnection() {  
   // const peer = new Peer("devcollab", {
@@ -8,27 +11,52 @@ function openConnection() {
   //   port: 9000,
   //   path: "/myapp",
   // });
-  const peer = new Peer();
+  // const peer = new Peer();
 
-  vscode.window.showInformationMessage("Opening connection...");
+  // vscode.window.showInformationMessage("Test");
   
-  peer.on("open", id => {
-    console.log(`Opened connection with peer id: ${id}`);
-    vscode.window.showInformationMessage(`Peer ID: ${id}`);
+  // peer.on("open", id => {
+  //   console.log(`Opened connection with peer id: ${id}`);
+  //   vscode.window.showInformationMessage(`Peer ID: ${id}`);
+  // });
+
+  // peer.on("error", err => {
+  //   vscode.window.showErrorMessage(`PeerJS error: ${err.type} - ${err.message}`);
+  //   console.error("PeerJS error:", err);
+  // });
+
+  // peer.on("disconnected", () => {
+  //   console.log("PeerJS disconnected");
+  // });
+
+  // peer.on("close", () => {
+  //   console.log("PeerJS connection closed");
+  // });
+
+  const ws = new WebSocket("ws://localhost:8080");
+
+  ws.on("open", () => {
+    vscode.window.showInformationMessage("Connected to server");
+    ws.send("Hello from VS Code!");
   });
 
-  peer.on("error", err => {
-    vscode.window.showErrorMessage(`PeerJS error: ${err.type} - ${err.message}`);
-    console.error("PeerJS error:", err);
+  ws.on("message", msg => {
+    vscode.window.showInformationMessage(`Received: ${msg}`);
   });
 
-  peer.on("disconnected", () => {
-    console.log("PeerJS disconnected");
-  });
-
-  peer.on("close", () => {
-    console.log("PeerJS connection closed");
-  });
+  var running = true;
+  while (running) {
+    vscode.window.showInputBox({ prompt: "Message" }).then((message) => {
+      if (message !== undefined && message === "") {
+        running = false;
+        return;
+      }
+      
+      ws.send(message!);
+    });
+  }
+  
+  ws.close();
 }
 
 // function connectToPeer() {
@@ -56,6 +84,10 @@ function openConnection() {
 //       }
 //     });
 // }
+
+function sendMessage() {
+
+}
 
 export function activate(context: vscode.ExtensionContext) {
   const commands = [
