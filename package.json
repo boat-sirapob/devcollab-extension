@@ -20,6 +20,10 @@
       {
         "command": "devcollab.openConnection",
         "title": "DevCollab: Open Connection"
+      },
+      {
+        "command": "devcollab.sendMessage",
+        "title": "DevCollab: Send Message"
       }
     ]
   },

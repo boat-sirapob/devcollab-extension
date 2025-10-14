@@ -2,38 +2,10 @@ import * as vscode from "vscode";
 
 import WebSocket from "ws";
 
-// import { Peer } from "peerjs";
-
+let ws: WebSocket;
 
 function openConnection() {  
-  // const peer = new Peer("devcollab", {
-  //   host: "localhost",
-  //   port: 9000,
-  //   path: "/myapp",
-  // });
-  // const peer = new Peer();
-
-  // vscode.window.showInformationMessage("Test");
-  
-  // peer.on("open", id => {
-  //   console.log(`Opened connection with peer id: ${id}`);
-  //   vscode.window.showInformationMessage(`Peer ID: ${id}`);
-  // });
-
-  // peer.on("error", err => {
-  //   vscode.window.showErrorMessage(`PeerJS error: ${err.type} - ${err.message}`);
-  //   console.error("PeerJS error:", err);
-  // });
-
-  // peer.on("disconnected", () => {
-  //   console.log("PeerJS disconnected");
-  // });
-
-  // peer.on("close", () => {
-  //   console.log("PeerJS connection closed");
-  // });
-
-  const ws = new WebSocket("ws://localhost:8080");
+  ws = new WebSocket("ws://localhost:8080");
 
   ws.on("open", () => {
     vscode.window.showInformationMessage("Connected to server");
@@ -43,50 +15,21 @@ function openConnection() {
   ws.on("message", msg => {
     vscode.window.showInformationMessage(`Received: ${msg}`);
   });
-
-  var running = true;
-  while (running) {
-    vscode.window.showInputBox({ prompt: "Message" }).then((message) => {
-      if (message !== undefined && message === "") {
-        running = false;
-        return;
-      }
-      
-      ws.send(message!);
-    });
-  }
-  
-  ws.close();
 }
 
-// function connectToPeer() {
-//   var peerId: string | null;
-
-//   vscode.window
-//     .showInputBox({
-//       prompt: "Enter peer ID",
-//       title: "Connect to peer",
-//     })
-//     .then((res) => {
-//       vscode.window.showInformationMessage(`${res}`);
-//       peerId = res || null;
-
-//       if (peerId !== null) {
-//         const peer = new Peer("devcollab", {
-//           host: "localhost",
-//           port: 9000,
-//           path: "/myapp",
-//         });
-//         const conn = peer.connect(peerId);
-//         conn.on("open", () => {
-//           conn.send("Test");
-//         });
-//       }
-//     });
-// }
-
 function sendMessage() {
-
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    vscode.window.showInputBox({ prompt: "Message" }).then((message) => {
+    
+      if (message !== undefined && message === "") {
+      return;
+    }
+    
+    ws.send(message!);
+  });
+  } else {
+    vscode.window.showWarningMessage("There is no ongoing connection.");
+  }
 }
 
 export function activate(context: vscode.ExtensionContext) {
@@ -95,10 +38,10 @@ export function activate(context: vscode.ExtensionContext) {
       command: "devcollab.openConnection",
       callback: openConnection
     },
-    // {
-    //   command: "devcollab.connect",
-    //   callback: connectToPeer
-    // },
+    {
+      command: "devcollab.sendMessage",
+      callback: sendMessage
+    }
   ];
 
   commands.forEach(c => {
@@ -108,4 +51,8 @@ export function activate(context: vscode.ExtensionContext) {
   });
 }
 
-export function deactivate() {}
+export function deactivate() {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.close();
+  }
+}
