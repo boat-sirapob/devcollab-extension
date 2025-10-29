@@ -25,6 +25,28 @@
       {
         "command": "devcollab.sendMessage",
         "title": "DevCollab: Send Message"
+      },
+      {
+        "command": "devcollab.undo",
+        "title": "DevCollab: Undo"
+      },
+      {
+        "command": "devcollab.redo",
+        "title": "DevCollab: Redo"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "devcollab.undo",
+        "key": "ctrl+z",
+        "mac": "cmd+z",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "devcollab.redo",
+        "key": "ctrl+y",
+        "mac": "cmd+y",
+        "when": "editorTextFocus"
       }
     ]
   },
