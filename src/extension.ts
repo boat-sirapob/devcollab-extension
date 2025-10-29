@@ -1,32 +1,142 @@
+import * as Y from "yjs";
 import * as vscode from "vscode";
 
 import WebSocket from "ws";
+import { WebsocketProvider } from "y-websocket";
+import throttle from "lodash.throttle";
 
-let ws: WebSocket;
+let ws: WebSocket | undefined;
+let doc: Y.Doc;
+let provider: WebsocketProvider;
+let yText: Y.Text;
 
-function openConnection() {  
-  ws = new WebSocket("ws://localhost:8080");
+let editor: vscode.TextEditor;
+let editorChangeHandler: vscode.Disposable;
 
-  ws.on("open", () => {
-    vscode.window.showInformationMessage("Connected to server");
-    ws.send("Hello from VS Code!");
-  });
+let applyingRemoteChanges = false;
+let applyingLocalChanges = false;
 
-  ws.on("message", msg => {
-    vscode.window.showInformationMessage(`Received: ${msg}`);
-  });
+async function openConnection() {  
+  // ws = new WebSocket("ws://localhost:8080");
+
+  // ws.on("open", () => {
+  //   vscode.window.showInformationMessage("Connected to server");
+  //   ws.send("Hello from VS Code!");
+  // });
+
+  // ws.on("message", msg => {
+  //   vscode.window.showInformationMessage(`Received: ${msg}`);
+  // });
+  
+  const activeEditor = vscode.window.activeTextEditor;
+  if (!activeEditor) {
+    vscode.window.showInformationMessage("Open a file to start collaboration.");
+    return;
+  }
+
+  editor = activeEditor;
+
+  // const roomName = await vscode.window.showInputBox({
+  //   prompt: "Enter a collaboration room name",
+  //   placeHolder: "example: project-alpha"
+  // });
+
+  let roomName = "devcollab-test"
+
+  if (!roomName) {
+    vscode.window.showInformationMessage("Collaboration cancelled (no room name).");
+    return;
+  }
+
+  startCollaboration(activeEditor, roomName);
 }
+
+function startCollaboration(editor: vscode.TextEditor, room: string) {
+  doc = new Y.Doc();
+  provider = new WebsocketProvider("ws://localhost:1234", room, doc);
+  yText = doc.getText("vscode");
+
+  vscode.window.showInformationMessage(`Yjs collaboration started in room: ${room}`);
+
+  provider.on("status", event => {
+    vscode.window.showInformationMessage(event.status);
+  });
+
+  yText.observe(() => {
+    if (!applyingLocalChanges) applyRemoteUpdate();
+  });
+
+  const yTextValue = yText.toString();
+  const editorText = editor.document.getText();
+  if (editorText !== yTextValue) {
+    editor.edit((builder) => {
+      builder.delete(new vscode.Range(
+        editor.document.positionAt(0),
+        editor.document.positionAt(editorText.length)
+      ));
+      builder.insert(editor.document.positionAt(0), yTextValue);
+    })
+  }
+
+  editorChangeHandler = vscode.workspace.onDidChangeTextDocument(handleEditorTextChanged);
+}
+
+function handleEditorTextChanged(event: vscode.TextDocumentChangeEvent) {
+  if (applyingRemoteChanges) return;
+  if (event.document !== editor.document) return;
+  
+  applyingLocalChanges = true;
+  try {
+    let changesCopy = [...event.contentChanges];
+    doc.transact(() => {
+      changesCopy.sort((change1, change2) => change2.rangeOffset - change1.rangeOffset).forEach(change => {
+        yText.delete(change.rangeOffset, change.rangeLength);
+        yText.insert(change.rangeOffset, change.text);
+      })
+    });
+  } finally {
+    applyingLocalChanges = false;
+  }
+}
+
+const applyRemoteUpdate = throttle(async () => {
+  if (!editor || applyingLocalChanges) return;
+
+  const fullText = yText.toString();
+  const oldText = editor.document.getText();
+
+  if (fullText === oldText) return;
+
+  applyingRemoteChanges = true;
+  try {
+    const edit = new vscode.WorkspaceEdit();
+    const uri = editor.document.uri;
+
+    edit.replace(
+      uri,
+      new vscode.Range(
+        editor.document.positionAt(0),
+        editor.document.positionAt(oldText.length)
+      ),
+      fullText
+    );
+
+    await vscode.workspace.applyEdit(edit);
+  } finally {
+    applyingRemoteChanges = false;
+  }
+}, 40);
 
 function sendMessage() {
   if (ws && ws.readyState === WebSocket.OPEN) {
     vscode.window.showInputBox({ prompt: "Message" }).then((message) => {
-    
+
       if (message !== undefined && message === "") {
-      return;
-    }
-    
-    ws.send(message!);
-  });
+        return;
+      }
+      
+      ws.send(message!);
+    });
   } else {
     vscode.window.showWarningMessage("There is no ongoing connection.");
   }
@@ -55,4 +165,7 @@ export function deactivate() {
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.close();
   }
+
+  // yText.unobserve(yTextObserver);
+  editorChangeHandler.dispose();
 }

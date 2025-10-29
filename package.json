@@ -9,6 +9,7 @@
   "categories": [
     "Other"
   ],
+  "type": "module",
   "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
@@ -36,6 +37,7 @@
     "test": "vscode-test"
   },
   "devDependencies": {
+    "@types/lodash.throttle": "^4.1.9",
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
     "@types/vscode": "^1.104.0",
@@ -47,7 +49,11 @@
     "typescript": "^5.9.2"
   },
   "dependencies": {
+    "lodash": "^4.17.21",
+    "lodash.throttle": "^4.1.1",
     "peer": "^1.0.2",
-    "peerjs": "^1.5.5"
+    "peerjs": "^1.5.5",
+    "y-websocket": "^3.0.0",
+    "yjs": "^13.6.27"
   }
 }
