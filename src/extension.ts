@@ -4,12 +4,14 @@ import * as vscode from "vscode";
 import WebSocket from "ws";
 import { WebsocketProvider } from "y-websocket";
 import throttle from "lodash.throttle";
+import { Awareness } from "y-protocols/awareness.js";
 
 let ws: WebSocket | undefined;
 let doc: Y.Doc;
 let provider: WebsocketProvider;
 let yText: Y.Text;
 let yUndoManager: Y.UndoManager;
+let awareness: Awareness;
 
 let editor: vscode.TextEditor;
 let editorChangeHandler: vscode.Disposable;
@@ -59,6 +61,12 @@ function startCollaboration(editor: vscode.TextEditor, room: string) {
   provider = new WebsocketProvider("ws://localhost:1234", room, doc);
   yText = doc.getText("vscode");
   yUndoManager = new Y.UndoManager(yText);
+  awareness = provider.awareness;
+
+  vscode.window.showInputBox({
+    title: "Display name",
+    placeHolder: "Enter your display name for this session",
+  });
 
   vscode.window.showInformationMessage(
     `Yjs collaboration started in room: ${room}`
