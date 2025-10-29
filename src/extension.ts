@@ -1,10 +1,10 @@
 import * as Y from "yjs";
 import * as vscode from "vscode";
 
+import { Awareness } from "y-protocols/awareness.js";
 import WebSocket from "ws";
 import { WebsocketProvider } from "y-websocket";
 import throttle from "lodash.throttle";
-import { Awareness } from "y-protocols/awareness.js";
 
 let ws: WebSocket | undefined;
 let doc: Y.Doc;
@@ -18,6 +18,24 @@ let editorChangeHandler: vscode.Disposable;
 
 let applyingRemoteChanges = false;
 let applyingLocalChanges = false;
+
+let decorationTypeMap = new Map<number, CustomDecorationType>()
+
+const usercolors = [
+  '#30bced',
+  '#6eeb83',
+  '#ffbc42',
+  '#ecd444',
+  '#ee6352',
+  '#9ac2c9',
+  '#8acb88',
+  '#1be7ff'
+]
+
+interface CustomDecorationType {
+  selection: vscode.TextEditorDecorationType,
+  cursor: vscode.TextEditorDecorationType,
+}
 
 async function openConnection() {
   // ws = new WebSocket("ws://localhost:8080");
@@ -53,33 +71,35 @@ async function openConnection() {
     return;
   }
 
-  startCollaboration(activeEditor, roomName);
+  await startCollaboration(activeEditor, roomName);
 }
 
-function startCollaboration(editor: vscode.TextEditor, room: string) {
+async function startCollaboration(editor: vscode.TextEditor, room: string) {
+  vscode.window.showInformationMessage(
+    `Yjs collaboration started in room: ${room}`
+  );
+
   doc = new Y.Doc();
   provider = new WebsocketProvider("ws://localhost:1234", room, doc);
   yText = doc.getText("vscode");
   yUndoManager = new Y.UndoManager(yText);
   awareness = provider.awareness;
 
-  vscode.window.showInputBox({
-    title: "Display name",
-    placeHolder: "Enter your display name for this session",
-  });
+  // setup awareness
+  let username: string | undefined;
+  while (!username || username === "") {
+    username = await vscode.window.showInputBox({
+      title: "Display name",
+      placeHolder: "Enter your display name for this session",
+    });
+  }
 
-  vscode.window.showInformationMessage(
-    `Yjs collaboration started in room: ${room}`
-  );
+  awareness.setLocalStateField("user", {
+    name: username,
+    color: usercolors[Math.floor(Math.random() * usercolors.length)]
+  })
 
-  provider.on("status", (event) => {
-    vscode.window.showInformationMessage(event.status);
-  });
-
-  yText.observe(() => {
-    if (!applyingLocalChanges) applyRemoteUpdate();
-  });
-
+  // loading initial text from remote
   const yTextValue = yText.toString();
   const editorText = editor.document.getText();
   if (editorText !== yTextValue) {
@@ -94,9 +114,18 @@ function startCollaboration(editor: vscode.TextEditor, room: string) {
     });
   }
 
-  editorChangeHandler = vscode.workspace.onDidChangeTextDocument(
-    handleEditorTextChanged
-  );
+  // pull remote text changes
+  yText.observe(() => {
+    if (!applyingLocalChanges) applyRemoteTextUpdate();
+  });
+
+  // push local text changes
+  vscode.workspace.onDidChangeTextDocument(handleEditorTextChanged);
+
+  awareness.on("change", applyRemoteSelectionUpdate);
+  
+  // push local selection changes
+  vscode.window.onDidChangeTextEditorSelection(handleEditorSelectionsChanged);
 }
 
 function handleEditorTextChanged(event: vscode.TextDocumentChangeEvent) {
@@ -119,7 +148,7 @@ function handleEditorTextChanged(event: vscode.TextDocumentChangeEvent) {
   }
 }
 
-const applyRemoteUpdate = throttle(async () => {
+const applyRemoteTextUpdate = throttle(async () => {
   if (!editor || applyingLocalChanges) return;
 
   const fullText = yText.toString();
@@ -129,20 +158,6 @@ const applyRemoteUpdate = throttle(async () => {
 
   applyingRemoteChanges = true;
   try {
-    // const edit = new vscode.WorkspaceEdit();
-    // const uri = editor.document.uri;
-
-    // edit.replace(
-    //   uri,
-    //   new vscode.Range(
-    //     editor.document.positionAt(0),
-    //     editor.document.positionAt(oldText.length)
-    //   ),
-    //   fullText
-    // );
-
-    // await vscode.workspace.applyEdit(edit);
-
     await editor.edit((builder) => {
       builder.replace(
         new vscode.Range(
@@ -157,18 +172,129 @@ const applyRemoteUpdate = throttle(async () => {
   }
 }, 40);
 
-function sendMessage() {
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    vscode.window.showInputBox({ prompt: "Message" }).then((message) => {
-      if (message !== undefined && message === "") {
-        return;
+function handleEditorSelectionsChanged(event: vscode.TextEditorSelectionChangeEvent) {
+  // if (editor !== event.textEditor) { return; }
+
+  awareness.setLocalStateField("cursor", {
+    selections: event.textEditor.selections.map(sel => ({
+      anchor: { line: sel.anchor.line, character: sel.anchor.character },
+      head: { line: sel.active.line, character: sel.active.character },
+    }))
+  })
+}
+
+
+interface CursorSelection {
+  anchor: { line: number; character: number }
+  head: { line: number; character: number }
+}
+
+function applyRemoteSelectionUpdate({added, updated, removed}: { added: Array<number>, updated: Array<number>, removed: Array<number> }) {  
+  const allStates = awareness.getStates() 
+  
+  vscode.window.showInformationMessage(JSON.stringify(Array.from(allStates.values())));
+
+  // clear decorations
+  for (const [clientId, decorations] of decorationTypeMap.entries()) {
+    editor.setDecorations(decorations.selection, []);
+    editor.setDecorations(decorations.cursor, []);
+  }
+
+  // set new decorations
+  for (const [clientId, state] of allStates.entries()) {
+    if (clientId === awareness.clientID) continue;
+
+    const user = state.user;
+    const cursor = state.cursor;
+    if (!user || !cursor || !cursor.selections) continue;
+
+    // Get or create decorations for this user
+    let decorations = decorationTypeMap.get(clientId);
+    if (!decorations) {
+      const selectionDecoration = vscode.window.createTextEditorDecorationType({
+        backgroundColor: `${user.color}40`,
+        overviewRulerColor: user.color,
+        overviewRulerLane: vscode.OverviewRulerLane.Right,
+      });
+
+      const cursorDecoration = vscode.window.createTextEditorDecorationType({
+        borderColor: user.color,
+        borderWidth: "1px",
+        borderStyle: "solid",
+        rangeBehavior: vscode.DecorationRangeBehavior.ClosedOpen,
+        overviewRulerColor: user.color,
+        overviewRulerLane: vscode.OverviewRulerLane.Right,
+      });
+
+      decorations = { selection: selectionDecoration, cursor: cursorDecoration };
+      decorationTypeMap.set(clientId, decorations);
+    }
+
+    const selectionRanges: vscode.Range[] = [];
+    const cursorRanges: vscode.Range[] = [];
+
+    for (const sel of cursor.selections as CursorSelection[]) {
+      // Highlight the selection range (if any)
+      if (!(sel.anchor.line === sel.head.line && sel.anchor.character === sel.head.character)) {
+        selectionRanges.push(
+          new vscode.Range(
+            new vscode.Position(sel.anchor.line, sel.anchor.character),
+            new vscode.Position(sel.head.line, sel.head.character)
+          )
+        );
       }
 
-      ws.send(message!);
-    });
-  } else {
-    vscode.window.showWarningMessage("There is no ongoing connection.");
+      // Draw the cursor border only at the head position
+      cursorRanges.push(
+        new vscode.Range(
+          new vscode.Position(sel.head.line, sel.head.character),
+          new vscode.Position(sel.head.line, sel.head.character)
+        )
+      );
+    }
+    
+    const cursorOptions: vscode.DecorationOptions[] = cursorRanges.map((range) => ({
+      range,
+      hoverMessage: new vscode.MarkdownString(`**${user.name}**`),
+    }));
+
+    editor.setDecorations(decorations.selection, selectionRanges);
+    editor.setDecorations(decorations.cursor, cursorOptions);
   }
+
+  // remove decorations for users that left
+  for (const clientId of removed) {
+    const decorations = decorationTypeMap.get(clientId);
+    if (decorations) {
+      editor.setDecorations(decorations.selection, []);
+      editor.setDecorations(decorations.cursor, []);
+      decorations.selection.dispose();
+      decorations.cursor.dispose();
+      decorationTypeMap.delete(clientId);
+    }
+  }
+}
+
+function sendMessage() {
+  // if (ws && ws.readyState === WebSocket.OPEN) {
+  //   vscode.window.showInputBox({ prompt: "Message" }).then((message) => {
+  //     if (message !== undefined && message === "") {
+  //       return;
+  //     }
+
+  //     ws.send(message!);
+  //   });
+  // } else {
+  //   vscode.window.showWarningMessage("There is no ongoing connection.");
+  // }
+
+  
+  vscode.window.showInputBox({ prompt: "Username" }).then((username) => {
+    awareness.setLocalStateField("user", {
+      name: username,
+      color: "#ffb61e",
+    })
+  });
 }
 
 function handleUndo() {
@@ -210,7 +336,4 @@ export function deactivate() {
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.close();
   }
-
-  // yText.unobserve(yTextObserver);
-  editorChangeHandler.dispose();
 }
