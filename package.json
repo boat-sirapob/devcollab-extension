@@ -3,6 +3,7 @@
   "displayName": "DevCollab",
   "description": "UofG Level 4 Individual Project - Extending an IDE with Tools for Collaborative Development/Testing ",
   "version": "0.0.1",
+  "license": "MIT",
   "engines": {
     "vscode": "^1.104.0"
   },
