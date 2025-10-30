@@ -305,7 +305,44 @@ function handleRedo() {
   yUndoManager.redo();
 }
 
+
+class MainSidebarProvider implements vscode.WebviewViewProvider {
+
+	public static readonly viewType = "devcollab";
+
+  resolveWebviewView(webviewView: vscode.WebviewView, context: vscode.WebviewViewResolveContext, token: vscode.CancellationToken): Thenable<void> | void {
+    
+    webviewView.webview.html = `<!DOCTYPE html>
+			<html lang="en">
+			<head>
+				<meta charset="UTF-8">
+
+				<!--
+					Use a content security policy to only allow loading styles from our extension directory,
+					and only allow scripts that have a specific nonce.
+					(See the 'webview-sample' extension sample for img-src content security policy examples)
+				-->
+				<meta http-equiv="Content-Security-Policy" content="default-src 'none'; ">
+
+				<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+				<title>DevCollab</title>
+			</head>
+			<body>
+				<button class="host-button">Host Session</button>
+			</body>
+			</html>`;
+  }
+}
+
+
 export function activate(context: vscode.ExtensionContext) {
+
+	const provider = new MainSidebarProvider();
+
+	context.subscriptions.push(
+		vscode.window.registerWebviewViewProvider(MainSidebarProvider.viewType, provider));
+
   const commands = [
     {
       command: "devcollab.openConnection",

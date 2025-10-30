@@ -14,6 +14,24 @@
   "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "devcollab",
+          "title": "DevCollab",
+          "icon": "media/devcollab.svg"
+        }
+      ]
+    },
+    "views": {
+      "devcollab": [
+        {
+					"type": "webview",
+          "id": "devcollab",
+          "name": "DevCollab"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "devcollab.connect",
