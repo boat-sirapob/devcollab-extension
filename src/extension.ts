@@ -192,7 +192,7 @@ interface CursorSelection {
 function applyRemoteSelectionUpdate({added, updated, removed}: { added: Array<number>, updated: Array<number>, removed: Array<number> }) {  
   const allStates = awareness.getStates() 
   
-  vscode.window.showInformationMessage(JSON.stringify(Array.from(allStates.values())));
+  // vscode.window.showInformationMessage(JSON.stringify(Array.from(allStates.values())));
 
   // clear decorations
   for (const [clientId, decorations] of decorationTypeMap.entries()) {
