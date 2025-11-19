@@ -19,7 +19,7 @@ let editorChangeHandler: vscode.Disposable;
 let applyingRemoteChanges = false;
 let applyingLocalChanges = false;
 
-let decorationTypeMap = new Map<number, CustomDecorationType>()
+let decorationTypeMap = new Map<number, CustomDecorationType>();
 
 const usercolors = [
   '#30bced',
@@ -30,7 +30,7 @@ const usercolors = [
   '#9ac2c9',
   '#8acb88',
   '#1be7ff'
-]
+];
 
 interface CustomDecorationType {
   selection: vscode.TextEditorDecorationType,
@@ -97,7 +97,7 @@ async function startCollaboration(editor: vscode.TextEditor, room: string) {
   awareness.setLocalStateField("user", {
     name: username,
     color: usercolors[Math.floor(Math.random() * usercolors.length)]
-  })
+  });
 
   // loading initial text from remote
   const yTextValue = yText.toString();
@@ -116,7 +116,7 @@ async function startCollaboration(editor: vscode.TextEditor, room: string) {
 
   // pull remote text changes
   yText.observe(() => {
-    if (!applyingLocalChanges) applyRemoteTextUpdate();
+    if (!applyingLocalChanges) { applyRemoteTextUpdate(); }
   });
 
   // push local text changes
@@ -129,8 +129,8 @@ async function startCollaboration(editor: vscode.TextEditor, room: string) {
 }
 
 function handleEditorTextChanged(event: vscode.TextDocumentChangeEvent) {
-  if (applyingRemoteChanges) return;
-  if (event.document !== editor.document) return;
+  if (applyingRemoteChanges) { return; }
+  if (event.document !== editor.document) { return; }
 
   applyingLocalChanges = true;
   try {
@@ -149,12 +149,12 @@ function handleEditorTextChanged(event: vscode.TextDocumentChangeEvent) {
 }
 
 const applyRemoteTextUpdate = throttle(async () => {
-  if (!editor || applyingLocalChanges) return;
+  if (!editor || applyingLocalChanges) { return; }
 
   const fullText = yText.toString();
   const oldText = editor.document.getText();
 
-  if (fullText === oldText) return;
+  if (fullText === oldText) { return; }
 
   applyingRemoteChanges = true;
   try {
@@ -180,7 +180,7 @@ function handleEditorSelectionsChanged(event: vscode.TextEditorSelectionChangeEv
       anchor: { line: sel.anchor.line, character: sel.anchor.character },
       head: { line: sel.active.line, character: sel.active.character },
     }))
-  })
+  });
 }
 
 
@@ -190,7 +190,7 @@ interface CursorSelection {
 }
 
 function applyRemoteSelectionUpdate({added, updated, removed}: { added: Array<number>, updated: Array<number>, removed: Array<number> }) {  
-  const allStates = awareness.getStates() 
+  const allStates = awareness.getStates();
   
   // vscode.window.showInformationMessage(JSON.stringify(Array.from(allStates.values())));
 
@@ -202,11 +202,11 @@ function applyRemoteSelectionUpdate({added, updated, removed}: { added: Array<nu
 
   // set new decorations
   for (const [clientId, state] of allStates.entries()) {
-    if (clientId === awareness.clientID) continue;
+    if (clientId === awareness.clientID) { continue; }
 
     const user = state.user;
     const cursor = state.cursor;
-    if (!user || !cursor || !cursor.selections) continue;
+    if (!user || !cursor || !cursor.selections) { continue; }
 
     // Get or create decorations for this user
     let decorations = decorationTypeMap.get(clientId);
@@ -293,7 +293,7 @@ function sendMessage() {
     awareness.setLocalStateField("user", {
       name: username,
       color: "#ffb61e",
-    })
+    });
   });
 }
 
