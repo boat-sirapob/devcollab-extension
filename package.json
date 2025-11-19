@@ -10,6 +10,10 @@
   "categories": [
     "Other"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/boat-sirapob/devcollab-extension.git"
+  },
   "type": "module",
   "activationEvents": [],
   "main": "./out/extension.js",
@@ -28,7 +32,8 @@
         {
 					"type": "webview",
           "id": "devcollab",
-          "name": "DevCollab"
+          "name": "DevCollab",
+          "icon": "media/devcollab.svg"
         }
       ]
     },
