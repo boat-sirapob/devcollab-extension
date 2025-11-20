@@ -4,6 +4,8 @@ import * as vscode from "vscode";
 import { Awareness } from "y-protocols/awareness.js";
 import WebSocket from "ws";
 import { WebsocketProvider } from "y-websocket";
+import { WebviewMessageType } from "./enums/WebviewMessageType.js";
+import { getNonce } from "./helpers/utilities.js";
 import throttle from "lodash.throttle";
 
 let ws: WebSocket | undefined;
@@ -35,6 +37,11 @@ const usercolors = [
 interface CustomDecorationType {
   selection: vscode.TextEditorDecorationType,
   cursor: vscode.TextEditorDecorationType,
+}
+
+interface WebviewMessage {
+  type: WebviewMessageType,
+  value: any
 }
 
 async function openConnection() {
@@ -126,6 +133,12 @@ async function startCollaboration(editor: vscode.TextEditor, room: string) {
   
   // push local selection changes
   vscode.window.onDidChangeTextEditorSelection(handleEditorSelectionsChanged);
+}
+
+async function endCollaboration() {
+  provider?.disconnect();
+
+  vscode.window.showInformationMessage("You have disconnected from the collaboration session.");
 }
 
 function handleEditorTextChanged(event: vscode.TextDocumentChangeEvent) {
@@ -310,35 +323,101 @@ class MainSidebarProvider implements vscode.WebviewViewProvider {
 
 	public static readonly viewType = "devcollab";
 
+	private _view?: vscode.WebviewView;
+
+  constructor(
+    private readonly _extensionUri: vscode.Uri,
+  ) { }
+
   resolveWebviewView(webviewView: vscode.WebviewView, context: vscode.WebviewViewResolveContext, token: vscode.CancellationToken): Thenable<void> | void {
+
+      this._view = webviewView;
+
+		webviewView.webview.options = {
+			// Allow scripts in the webview
+			enableScripts: true,
+
+			localResourceRoots: [
+				this._extensionUri
+			]
+		};
     
-    webviewView.webview.html = `<!DOCTYPE html>
+    webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
+
+    webviewView.webview.onDidReceiveMessage(this.handleSidebarMessage);
+  }
+
+  handleSidebarMessage(data: WebviewMessage) {
+    switch (data.type) {
+      case WebviewMessageType.HOST_SESSION: {
+        openConnection();
+
+        break;
+      }
+      case WebviewMessageType.JOIN_SESSION: {
+        openConnection();
+
+        break;
+      }
+      case WebviewMessageType.END_SESSION: {
+        endCollaboration();
+
+        break;
+      }
+      case WebviewMessageType.DISCONNECT_SESSION: {
+        endCollaboration();
+
+        break;
+      }
+    }
+  }
+
+  private _getHtmlForWebview(webview: vscode.Webview) {
+		// Get the local path to main script run in the webview, then convert it to a uri we can use in the webview.
+		const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'src/webview-ui', 'main.js'));
+
+		// Do the same for the stylesheet.
+		const styleResetUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'src/webview-ui', 'reset.css'));
+		const styleVSCodeUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'src/webview-ui', 'vscode.css'));
+		const styleMainUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'src/webview-ui', 'main.css'));
+
+		// Use a nonce to only allow a specific script to be run.
+		const nonce = getNonce();
+
+		return `<!DOCTYPE html>
 			<html lang="en">
 			<head>
 				<meta charset="UTF-8">
 
-				<!--
-					Use a content security policy to only allow loading styles from our extension directory,
-					and only allow scripts that have a specific nonce.
-					(See the 'webview-sample' extension sample for img-src content security policy examples)
-				-->
-				<meta http-equiv="Content-Security-Policy" content="default-src 'none'; ">
+				<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
 
 				<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-				<title>DevCollab</title>
+				<link href="${styleResetUri}" rel="stylesheet">
+				<link href="${styleVSCodeUri}" rel="stylesheet">
+				<link href="${styleMainUri}" rel="stylesheet">
+
+				<title>Cat Colors</title>
 			</head>
 			<body>
-				<button class="host-button">Host Session</button>
+
+        <div class="button-container">
+  				<button class="host-session-button">Host Session</button>
+  				<button class="join-session-button">Join Session</button>
+  				<button class="end-session-button">End Session</button>
+  				<button class="disconnect-session-button">Disconnect</button>
+        </div>
+
+				<script nonce="${nonce}" src="${scriptUri}"></script>
 			</body>
 			</html>`;
-  }
+	}
 }
 
 
 export function activate(context: vscode.ExtensionContext) {
 
-	const provider = new MainSidebarProvider();
+	const provider = new MainSidebarProvider(context.extensionUri);
 
 	context.subscriptions.push(
 		vscode.window.registerWebviewViewProvider(MainSidebarProvider.viewType, provider));
