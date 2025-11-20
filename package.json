@@ -3,19 +3,74 @@
   "displayName": "DevCollab",
   "description": "UofG Level 4 Individual Project - Extending an IDE with Tools for Collaborative Development/Testing ",
   "version": "0.0.1",
+  "license": "MIT",
   "engines": {
     "vscode": "^1.104.0"
   },
   "categories": [
     "Other"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/boat-sirapob/devcollab-extension.git"
+  },
+  "type": "module",
   "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "devcollab",
+          "title": "DevCollab",
+          "icon": "media/devcollab.svg"
+        }
+      ]
+    },
+    "views": {
+      "devcollab": [
+        {
+					"type": "webview",
+          "id": "devcollab",
+          "name": "DevCollab",
+          "icon": "media/devcollab.svg"
+        }
+      ]
+    },
     "commands": [
       {
-        "command": "devcollab.helloWorld",
-        "title": "Hello World"
+        "command": "devcollab.connect",
+        "title": "DevCollab: Connect to peer"
+      },
+      {
+        "command": "devcollab.openConnection",
+        "title": "DevCollab: Open Connection"
+      },
+      {
+        "command": "devcollab.sendMessage",
+        "title": "DevCollab: Send Message"
+      },
+      {
+        "command": "devcollab.undo",
+        "title": "DevCollab: Undo"
+      },
+      {
+        "command": "devcollab.redo",
+        "title": "DevCollab: Redo"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "devcollab.undo",
+        "key": "ctrl+z",
+        "mac": "cmd+z",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "devcollab.redo",
+        "key": "ctrl+y",
+        "mac": "cmd+y",
+        "when": "editorTextFocus"
       }
     ]
   },
@@ -28,14 +83,23 @@
     "test": "vscode-test"
   },
   "devDependencies": {
-    "@types/vscode": "^1.104.0",
+    "@types/lodash.throttle": "^4.1.9",
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
+    "@types/vscode": "^1.104.0",
     "@typescript-eslint/eslint-plugin": "^8.42.0",
     "@typescript-eslint/parser": "^8.42.0",
-    "eslint": "^9.34.0",
-    "typescript": "^5.9.2",
     "@vscode/test-cli": "^0.0.11",
-    "@vscode/test-electron": "^2.5.2"
+    "@vscode/test-electron": "^2.5.2",
+    "eslint": "^9.34.0",
+    "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "lodash": "^4.17.21",
+    "lodash.throttle": "^4.1.1",
+    "peer": "^1.0.2",
+    "peerjs": "^1.5.5",
+    "y-websocket": "^3.0.0",
+    "yjs": "^13.6.27"
   }
 }
