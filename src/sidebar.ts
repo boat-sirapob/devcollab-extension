@@ -1,106 +1,80 @@
-import * as vscode from "vscode";
+import * as fs from 'fs';
+import * as path from 'path';
+import * as vscode from 'vscode';
 
-import { MainLogic } from "./logic.js";
-import { WebviewMessage } from "./models/WebviewMessage.js";
-import { WebviewMessageType } from "./enums/WebviewMessageType.js";
-import { getNonce } from "./helpers/utilities.js";
+import { ExtensionState } from "./state.js";
+import { MainLogic } from "./old-state.js";
 
-export class MainSidebarProvider implements vscode.WebviewViewProvider {
+// class SessionInfoItem extends vscode.TreeItem {
+//   constructor(
+//     public readonly label: string,
+//     public readonly description: string,
+//     public readonly collapsibleState: vscode.TreeItemCollapsibleState = vscode.TreeItemCollapsibleState.None,
+//   ) {
+//     super(label, collapsibleState);
 
-	public static readonly viewType = "devcollab";
+//     this.description = description;
+//   }
+// }
 
-	private _view?: vscode.WebviewView;
+type Node = {
+  label: string;
+  description?: string;
+  children?: Node[];
+}
 
-    private _logic: MainLogic
+export class SessionInfoSidebarProvider implements vscode.TreeDataProvider<Node> {
+  private _onDidChangeTreeData = new vscode.EventEmitter<void>();
+  readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
-  constructor(
-    private readonly _extensionUri: vscode.Uri,
-    logic: MainLogic
-  ) { 
-    this._logic = logic;
+  constructor(private state: ExtensionState) {
+    state.onDidChange(() => {
+      this._onDidChangeTreeData.fire();
+    });
   }
 
-  resolveWebviewView(webviewView: vscode.WebviewView, context: vscode.WebviewViewResolveContext, token: vscode.CancellationToken): Thenable<void> | void {
-
-      this._view = webviewView;
-
-		webviewView.webview.options = {
-			// Allow scripts in the webview
-			enableScripts: true,
-
-			localResourceRoots: [
-				this._extensionUri
-			]
-		};
-    
-    webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
-
-    webviewView.webview.onDidReceiveMessage(this.handleSidebarMessage.bind(this));
+  getTreeItem(node: Node): vscode.TreeItem {
+    const item = new vscode.TreeItem(
+      node.label,
+      node.children ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.None,
+    );
+    item.description = node.description;
+    return item;
   }
 
-  handleSidebarMessage(data: WebviewMessage) {
-    switch (data.type) {
-      case WebviewMessageType.HOST_SESSION: {
-        this._logic.openConnection();
-
-        break;
-      }
-      case WebviewMessageType.JOIN_SESSION: {
-        this._logic.openConnection();
-
-        break;
-      }
-      case WebviewMessageType.END_SESSION: {
-        this._logic.endCollaboration();
-
-        break;
-      }
-      case WebviewMessageType.DISCONNECT_SESSION: {
-        this._logic.endCollaboration();
-
-        break;
-      }
+  getChildren(node?: Node): Node[] {
+    if (node) {
+      return node.children ?? [];
     }
+
+    if (this.state.loading) {
+      return [
+        {
+          label: "Loading..."
+        }
+      ];
+    }
+
+    if (this.state.session === null) { return []; }
+    
+    return [
+      {
+        label: "Session Info",
+        children: [
+          {
+            label: "Room Code",
+            description: this.state.session.roomCode,
+          }
+        ]
+      },
+      {
+        label: "Participants",
+        children: this.state.session.participants.map(p => {
+          return {
+            label: p.displayName
+          }
+        })
+      }
+    ];
   }
-
-  private _getHtmlForWebview(webview: vscode.Webview) {
-		// Get the local path to main script run in the webview, then convert it to a uri we can use in the webview.
-		const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'src/webview-ui', 'main.js'));
-
-		// Do the same for the stylesheet.
-		const styleResetUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'src/webview-ui', 'reset.css'));
-		const styleVSCodeUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'src/webview-ui', 'vscode.css'));
-		const styleMainUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'src/webview-ui', 'main.css'));
-
-		// Use a nonce to only allow a specific script to be run.
-		const nonce = getNonce();
-
-		return `<!DOCTYPE html>
-			<html lang="en">
-			<head>
-				<meta charset="UTF-8">
-
-				<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
-
-				<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-				<link href="${styleResetUri}" rel="stylesheet">
-				<link href="${styleVSCodeUri}" rel="stylesheet">
-				<link href="${styleMainUri}" rel="stylesheet">
-
-				<title>DevCollab</title>
-			</head>
-			<body>
-
-        <div class="button-container">
-  				<button class="host-session-button">Host Session</button>
-  				<button class="join-session-button">Join Session</button>
-  				<button class="end-session-button">End Session</button>
-  				<button class="disconnect-session-button">Disconnect</button>
-        </div>
-
-				<script nonce="${nonce}" src="${scriptUri}"></script>
-			</body>
-			</html>`;
-	}
 }

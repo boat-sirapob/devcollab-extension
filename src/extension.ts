@@ -1,43 +1,52 @@
 import * as vscode from "vscode";
 
-import { MainLogic } from "./logic.js";
-import { MainSidebarProvider } from "./sidebar.js";
+import { ExtensionState } from "./state.js";
+import { SessionInfoSidebarProvider } from "./sidebar.js";
 
-const logic = new MainLogic();
+const state = new ExtensionState();
 
 export function activate(context: vscode.ExtensionContext) {
+  vscode.commands.executeCommand('setContext', 'devcollab.isInSession', false);
 
-	const provider = new MainSidebarProvider(context.extensionUri, logic);
+  state.onDidChange(() => {
+    vscode.commands.executeCommand('setContext', 'devcollab.isInSession', state.session !== null);
+  }, context.subscriptions);
 
-	context.subscriptions.push(
-		vscode.window.registerWebviewViewProvider(MainSidebarProvider.viewType, provider));
+  const sidebarProvider = new SessionInfoSidebarProvider(state);
+  vscode.window.createTreeView("devcollab", {
+    treeDataProvider: sidebarProvider
+  });
 
   const commands = [
     {
-      command: "devcollab.openConnection",
-      callback: logic.openConnection,
+      command: "devcollab.hostSession",
+      callback: state.hostSession,
     },
     {
-      command: "devcollab.sendMessage",
-      callback: logic.sendMessage,
+      command: "devcollab.joinSession",
+      callback: state.joinSession,
+    },
+    {
+      command: "devcollab.endSession",
+      callback: state.endSession,
     },
     {
       command: "devcollab.undo",
-      callback: logic.handleUndo,
+      callback: state.handleUndo,
     },
     {
       command: "devcollab.redo",
-      callback: logic.handleRedo,
+      callback: state.handleRedo,
     },
   ];
 
   commands.forEach((c) => {
-    const disposable = vscode.commands.registerCommand(c.command, c.callback.bind(logic));
+    const disposable = vscode.commands.registerCommand(c.command, c.callback.bind(state));
 
     context.subscriptions.push(disposable);
   });
 }
 
 export function deactivate() {
-  logic.dispose();
+  state.dispose();
 }
