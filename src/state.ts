@@ -243,7 +243,7 @@ export class ExtensionState {
     this._onDidChange.fire();
 
     const roomCode = await vscode.window.showInputBox({
-      prompt: "Enter a collaboration room name",
+      prompt: "Enter the room code for the collaboration session you want to join",
       placeHolder: "Room Code"
     });
     if (!roomCode) {
