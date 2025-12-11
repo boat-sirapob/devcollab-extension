@@ -19,6 +19,10 @@ export function activate(context: vscode.ExtensionContext) {
 
   const commands = [
     {
+      command: "devcollab.test",
+      callback: state.test,
+    },
+    {
       command: "devcollab.hostSession",
       callback: state.hostSession,
     },

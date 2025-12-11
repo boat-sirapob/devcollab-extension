@@ -1,9 +1,6 @@
-import * as fs from 'fs';
-import * as path from 'path';
 import * as vscode from 'vscode';
 
 import { ExtensionState } from "./state.js";
-import { MainLogic } from "./old-state.js";
 
 // class SessionInfoItem extends vscode.TreeItem {
 //   constructor(

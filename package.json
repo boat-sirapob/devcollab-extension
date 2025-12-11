@@ -53,6 +53,10 @@
     },
     "commands": [
       {
+        "command": "devcollab.test",
+        "title": "DevCollab: Test Command"
+      },
+      {
         "command": "devcollab.hostSession",
         "title": "DevCollab: Host Session"
       },

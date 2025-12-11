@@ -1,3 +1,6 @@
+import * as path from "path";
+import * as vscode from "vscode";
+
 import { Uri, Webview } from "vscode";
 
 /**
@@ -30,4 +33,23 @@ export function getNonce() {
  */
 export function getUri(webview: Webview, extensionUri: Uri, pathList: string[]) {
   return webview.asWebviewUri(Uri.joinPath(extensionUri, ...pathList));
+}
+
+export function absoluteToRelative(absPath: string, rootPath: string) {
+  return path
+    .relative(rootPath, absPath)
+    .split(path.sep)
+    .join("/");
+}
+
+export function relativeToUri(relPath: string, rootPath: string) {
+  return path.join(
+    rootPath,
+    ...relPath.split("/")
+  );
+}
+
+export async function isDirectoryEmpty(dirUri: vscode.Uri): Promise<boolean> {
+  const entries = await vscode.workspace.fs.readDirectory(dirUri);
+  return entries.length === 0;
 }
