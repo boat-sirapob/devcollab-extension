@@ -1,326 +1,14 @@
-import * as Y from "yjs";
 import * as path from "path";
 import * as vscode from "vscode";
 
-import { absoluteToRelative, isDirectoryEmpty, relativeToUri as relativeToAbsolute } from "./helpers/utilities.js";
-import { createMutex, mutex } from "lib0/mutex";
+import { absoluteToRelative, getWorkspaceType, isDirectoryEmpty, relativeToAbsolute } from "./helpers/utilities.js";
 
-import { Awareness } from "y-protocols/awareness.js";
-import { CursorSelection } from "./models/CursorSelection.js";
-import { CustomDecorationType } from "./models/CustomDecoratorType.js";
-import WebSocket from "ws";
-import { WebsocketProvider } from "y-websocket";
+import { DocumentBinding } from "./DocumentBinding.js";
+import { Session } from "./session.js";
+import { SessionParticipant } from "./models/SessionParticipant.js";
+import { WorkspaceItem } from "./models/WorkspaceItem.js";
+import { WorkspaceType } from "./enums/WorkspaceType.js";
 import { readdir } from "fs/promises";
-import throttle from "lodash.throttle";
-
-export interface SessionParticipant {
-  clientId: number;
-  displayName: string;
-  color: string;
-}
-
-export type WorkspaceFile = {
-  type: "file",
-  name: string,
-  path: string,
-}
-
-export type WorkspaceFolder = {
-  type: "folder",
-  name: string,
-  path: string,
-  children: WorkspaceItem[]
-}
-
-export type WorkspaceItem = WorkspaceFile | WorkspaceFolder;
-
-type CollabDoc = {
-  path: string,
-  yText: Y.Text
-}
-
-export class Session {
-  roomCode: string;
-  participants: SessionParticipant[];
-  doc: Y.Doc;
-  workspaceMap: Y.Map<Y.Text>
-  provider: WebsocketProvider;
-  awareness: Awareness;
-  rootPath: string;
-  onChange: vscode.EventEmitter<void>
-
-  constructor(roomCode: string, rootPath: string, onChange: vscode.EventEmitter<void>) {
-    this.roomCode = roomCode;
-    this.participants = [];
-    this.doc = new Y.Doc();
-    this.provider = new WebsocketProvider("ws://localhost:1234", roomCode, this.doc);
-    this.workspaceMap = this.doc.getMap<Y.Text>("workspace-map");
-    this.awareness = this.provider.awareness;
-    this.rootPath = rootPath;
-    this.onChange = onChange;
-
-    this.awareness.on("change", ({added, updated, removed}: { added: Array<number>, updated: Array<number>, removed: Array<number> }) => { 
-      
-      vscode.window.showInformationMessage("On awareness");
-      
-      const allStates = this.awareness.getStates();
-  
-      added.forEach(id => {
-        const state = allStates.get(id);
-        const user = state?.user;
-        if (!user) { return; }
-        vscode.window.showInformationMessage(`User joined: ${user?.name ?? id}`);
-        this.participants.push({
-          clientId: id,
-          displayName: user.name,
-          color: user.color,
-        })
-        this.onChange.fire();
-      });
-  
-      removed.forEach(id => {
-        this.participants = this.participants.filter(
-          p => p.clientId !== id
-        );
-  
-        this.onChange.fire();
-      });
-    });
-  }
-
-  async bindDocument(file: WorkspaceItem) {
-    if (file.type === "folder") {
-      for (const child of file.children) {
-        await this.bindDocument(child);
-      }
-      return;
-    }
-
-    const filePath = vscode.Uri.file(relativeToAbsolute(file.path, this.rootPath));
-    const doc = await vscode.workspace.openTextDocument(filePath);
-    
-    // const ytext = this.doc.getText(file.path);
-    const ytext = new Y.Text();
-    
-    const binding = new DocumentBinding(ytext, doc, this.awareness);
-    this.workspaceMap.set(file.path, ytext);
-  }
-
-  async createFile(
-    fileRelPath: string
-  ): Promise<vscode.TextDocument> {
-    const fileUri = vscode.Uri.file(relativeToAbsolute(fileRelPath, this.rootPath));
-
-    const dirUri = vscode.Uri.joinPath(fileUri, "..");
-    await vscode.workspace.fs.createDirectory(dirUri);
-
-    try {
-      await vscode.workspace.fs.stat(fileUri);
-    } catch {
-      await vscode.workspace.fs.writeFile(fileUri, new Uint8Array());
-    } finally {
-      return await vscode.workspace.openTextDocument(fileUri);
-    }
-  }
-}
-
-const usercolors = [
-  '#30bced',
-  '#6eeb83',
-  '#ffbc42',
-  '#ecd444',
-  '#ee6352',
-  '#9ac2c9',
-  '#8acb88',
-  '#1be7ff'
-];
-
-enum WorkspaceType {
-  SingleFile,
-  SingleRootFolder,
-  MultiRootFolder,
-  Empty,
-}
-
-enum ServerMessageType {
-  HostResponse = "hostResponse",
-}
-
-interface ServerMessage {
-  type: ServerMessageType
-}
-
-export class DocumentBinding {
-  yText: Y.Text;
-  doc: vscode.TextDocument;
-  awareness: Awareness;
-
-  applyingRemote: boolean;
-  mux: mutex;
-
-  constructor(yText: Y.Text, doc: vscode.TextDocument, awareness: Awareness) {
-    this.yText = yText;
-    this.doc = doc;
-    this.awareness = awareness;
-    
-    this.applyingRemote = false;
-    this.mux = createMutex();
-
-    this.yText.observe(
-      throttle(async (event: Y.YTextEvent, transaction: Y.Transaction) => {
-        if (transaction.origin === this) { return; }
-        
-        await this.mux(async () => {
-          const fullText = this.yText.toString();
-          const oldText = this.doc.getText();
-          
-          if (fullText === oldText) { return; }
-  
-          this.applyingRemote = true;
-          
-          try {
-            let edit = new vscode.WorkspaceEdit();
-            edit.replace(
-              this.doc.uri,
-              new vscode.Range(
-                this.doc.positionAt(0),
-                this.doc.positionAt(oldText.length)
-              ),
-              fullText
-            );
-            await vscode.workspace.applyEdit(edit);
-          } finally {
-            this.applyingRemote = false;
-          }
-        })
-      }, 40)
-    );
-
-    // push local text changes
-    vscode.workspace.onDidChangeTextDocument((event: vscode.TextDocumentChangeEvent) => {
-      this.mux(() => {
-        if (this.doc !== event.document || this.applyingRemote) { return; }
-        
-        vscode.window.showInformationMessage(`Test ${event.document.fileName}`);
-  
-        let changesCopy = [...event.contentChanges];
-        this.yText.doc!.transact(() => {
-          changesCopy
-            .sort((change1, change2) => change2.rangeOffset - change1.rangeOffset)
-            .forEach((change) => {
-              this.yText.delete(change.rangeOffset, change.rangeLength);
-              this.yText.insert(change.rangeOffset, change.text);
-            });
-        }, this);
-      })
-    });
-
-    // this.awareness.on("change", ({added, updated, removed}: { added: Array<number>, updated: Array<number>, removed: Array<number> }) => { 
-    //   const allStates = this.awareness.getStates();
-  
-    //   added.forEach(id => {
-    //     const state = allStates.get(id);
-    //     const user = state?.user;
-    //     if (!user) { return; }
-    //     vscode.window.showInformationMessage(`User joined: ${user?.name ?? id}`);
-    //     this.session!.participants.push({
-    //       clientId: id,
-    //       displayName: user.name,
-    //       color: user.color,
-    //     })
-    //     this._onDidChange.fire();
-    //   });
-  
-    //   removed.forEach(id => {
-    //     this.session!.participants = this.session!.participants.filter(
-    //       p => p.clientId !== id
-    //     );
-  
-    //     this._onDidChange.fire();
-    //   });
-      
-    //   // clear decorations
-    //   for (const [clientId, decorations] of this.decorationTypeMap.entries()) {
-    //     this.editor.setDecorations(decorations.selection, []);
-    //     this.editor.setDecorations(decorations.cursor, []);
-    //   }
-    
-    //   // set new decorations
-    //   for (const [clientId, state] of allStates.entries()) {
-    //     if (clientId === this.awareness.clientID) { continue; }
-    
-    //     const user = state.user;
-    //     const cursor = state.cursor;
-    //     if (!user || !cursor || !cursor.selections) { continue; }
-    
-    //     // Get or create decorations for this user
-    //     let decorations = this.decorationTypeMap.get(clientId);
-    //     if (!decorations) {
-    //       const selectionDecoration = vscode.window.createTextEditorDecorationType({
-    //         backgroundColor: `${user.color}40`,
-    //         overviewRulerColor: user.color,
-    //         overviewRulerLane: vscode.OverviewRulerLane.Right,
-    //       });
-    
-    //       const cursorDecoration = vscode.window.createTextEditorDecorationType({
-    //         borderColor: user.color,
-    //         borderWidth: "1px",
-    //         borderStyle: "solid",
-    //         rangeBehavior: vscode.DecorationRangeBehavior.ClosedOpen,
-    //         overviewRulerColor: user.color,
-    //         overviewRulerLane: vscode.OverviewRulerLane.Right,
-    //       });
-    
-    //       decorations = { selection: selectionDecoration, cursor: cursorDecoration };
-    //       this.decorationTypeMap.set(clientId, decorations);
-    //     }
-    
-    //     const selectionRanges: vscode.Range[] = [];
-    //     const cursorRanges: vscode.Range[] = [];
-    
-    //     for (const sel of cursor.selections as CursorSelection[]) {
-    //       // Highlight the selection range (if any)
-    //       if (!(sel.anchor.line === sel.head.line && sel.anchor.character === sel.head.character)) {
-    //         selectionRanges.push(
-    //           new vscode.Range(
-    //             new vscode.Position(sel.anchor.line, sel.anchor.character),
-    //             new vscode.Position(sel.head.line, sel.head.character)
-    //           )
-    //         );
-    //       }
-    
-    //       // Draw the cursor border only at the head position
-    //       cursorRanges.push(
-    //         new vscode.Range(
-    //           new vscode.Position(sel.head.line, sel.head.character),
-    //           new vscode.Position(sel.head.line, sel.head.character)
-    //         )
-    //       );
-    //     }
-        
-    //     const cursorOptions: vscode.DecorationOptions[] = cursorRanges.map((range) => ({
-    //       range,
-    //       hoverMessage: new vscode.MarkdownString(`**${user.name}**`),
-    //     }));
-    
-    //     this.editor.setDecorations(decorations.selection, selectionRanges);
-    //     this.editor.setDecorations(decorations.cursor, cursorOptions);
-    //   }
-    // });
-
-    // push local selection changes
-    vscode.window.onDidChangeTextEditorSelection((event: vscode.TextEditorSelectionChangeEvent) => {
-      if (event.textEditor !== vscode.window.activeTextEditor) { return; }
-
-      this.awareness.setLocalStateField("cursor", {
-        selections: event.textEditor.selections.map(sel => ({
-          anchor: { line: sel.anchor.line, character: sel.anchor.character },
-          head: { line: sel.active.line, character: sel.active.character },
-        }))
-      });
-    });
-  }
-}
 
 export class ExtensionState {
   private _onDidChange = new vscode.EventEmitter<void>();
@@ -345,68 +33,15 @@ export class ExtensionState {
     this.disposables = [];
   }
 
-  generateRoomCode(length = 6) {
-    const chars = "1234567890";
-    let code = "";
-    for (let i = 0; i < length; i++) {
-      code += chars[Math.floor(Math.random() * chars.length)];
-    }
-    return code;
-  }
-
-  getWorkspaceType(): WorkspaceType {
-    let folders = vscode.workspace.workspaceFolders;
-    let editor = vscode.window.activeTextEditor;
-  
-    if (folders && folders.length > 0) {
-      if (folders.length == 1) {
-        return WorkspaceType.SingleRootFolder;
-      } else {
-        return WorkspaceType.MultiRootFolder;
-      }
-    } else if (!folders && editor) {
-      return WorkspaceType.SingleFile;
-    } else {
-      return WorkspaceType.Empty;
-    }
-  }
-
   async test() {
     console.log(this.session?.workspaceMap)
-  }
-
-  async getFilesRecursive(rootDir: string, currentDir: string = rootDir) {
-    const entries = await readdir(currentDir, { withFileTypes: true });
-    const files: WorkspaceItem[] = [];
-
-    for (const entry of entries) {
-      const absolutePath = path.join(currentDir, entry.name);
-      const relativePath = absoluteToRelative(absolutePath, rootDir);
-
-      if (entry.isDirectory()) {
-        files.push({
-          type: "folder",
-          name: entry.name,
-          path: relativePath,
-          children: [...await this.getFilesRecursive(rootDir, absolutePath)]
-        });
-      } else {
-        files.push({
-          type: "file",
-          name: entry.name,
-          path: relativePath
-        });
-      }
-    }
-
-    return files;
   }
 
   // https://stackblitz.com/edit/y-quill-doc-list?file=index.ts
   async hostSession() {  
     let folders = vscode.workspace.workspaceFolders;
     let editor = vscode.window.activeTextEditor;
-    let workspaceType = this.getWorkspaceType();
+    let workspaceType = getWorkspaceType();
 
     console.log(WorkspaceType[workspaceType]);
     
@@ -422,26 +57,29 @@ export class ExtensionState {
         break;
       case WorkspaceType.SingleRootFolder:
         const rootPath = folders![0].uri.fsPath;
-
-        let files = await this.getFilesRecursive(rootPath);
         
-        // let roomCode = this.generateRoomCode();
-        const roomCode = "dev-collab";
-        this.session = new Session(roomCode, rootPath, this._onDidChange);
-
-        for (const file of files) {
-          await this.session.bindDocument(file);
+        let username = await vscode.window.showInputBox({
+          title: "Display name",
+          placeHolder: "Enter your display name for this session (empty to cancel)",
+        });
+        if (!username) { 
+          vscode.window.showInformationMessage("Cancelled joining collaboration session.");    
+          this.loading = false;
+          this._onDidChange.fire();
+          return;
         }
+
+        this.session = await Session.hostSession(rootPath, username, this._onDidChange);
 
         this.loading = false;
         
         vscode.window.showInformationMessage(
-          `Collaboration session started with room code: ${roomCode}`,
+          `Collaboration session started with room code: ${this.session.roomCode}`,
           "Copy code to clipboard",
         ).then(async copy => {
           if (copy) {
-            await vscode.env.clipboard.writeText(roomCode);
-            vscode.window.showInformationMessage(`Copied room code ${roomCode} to clipboard!`);
+            await vscode.env.clipboard.writeText(this.session!.roomCode);
+            vscode.window.showInformationMessage(`Copied room code ${this.session!.roomCode} to clipboard!`);
           }
         });
     
@@ -462,7 +100,7 @@ export class ExtensionState {
 
     let folders = vscode.workspace.workspaceFolders;
     let editor = vscode.window.activeTextEditor;
-    let workspaceType = this.getWorkspaceType();
+    let workspaceType = getWorkspaceType();
 
     // todo: fix whatever this is
     if (workspaceType !== WorkspaceType.SingleRootFolder || !(await isDirectoryEmpty(folders![0].uri))) {
@@ -509,26 +147,18 @@ export class ExtensionState {
     //   targetDir
     // );
 
+    let username = await vscode.window.showInputBox({
+      title: "Display name",
+      placeHolder: "Enter your display name for this session (empty to cancel)",
+    });
+    if (!username) { 
+      vscode.window.showInformationMessage("Cancelled joining collaboration session.");    
+      this.loading = false;
+      this._onDidChange.fire();
+      return;
+    }
 
-    this.session = new Session(roomCode, targetDir.fsPath, this._onDidChange);
-
-    console.log(this.session);
-    console.log(this.session.workspaceMap);
-    
-    this.session.workspaceMap.observe(async () => {
-      // setup
-
-      for (const [fileRelPath, yText] of this.session!.workspaceMap.entries()) {
-        console.log(fileRelPath, yText);
-
-        await this.session!.createFile(fileRelPath);
-
-        const filePath = vscode.Uri.file(relativeToAbsolute(fileRelPath, this.session!.rootPath));
-        const doc = await vscode.workspace.openTextDocument(filePath);
-        
-        const binding = new DocumentBinding(yText, doc, this.session!.awareness);
-      }
-    })
+    this.session = await Session.joinSession(roomCode, targetDir.fsPath, username, this._onDidChange);
 
     this.loading = false;
     this._onDidChange.fire();

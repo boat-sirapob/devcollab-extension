@@ -3,6 +3,8 @@ import * as vscode from "vscode";
 
 import { Uri, Webview } from "vscode";
 
+import { WorkspaceType } from "../enums/WorkspaceType.js";
+
 /**
  * A helper function that returns a unique alphanumeric identifier called a nonce.
  *
@@ -42,7 +44,7 @@ export function absoluteToRelative(absPath: string, rootPath: string) {
     .join("/");
 }
 
-export function relativeToUri(relPath: string, rootPath: string) {
+export function relativeToAbsolute(relPath: string, rootPath: string) {
   return path.join(
     rootPath,
     ...relPath.split("/")
@@ -52,4 +54,21 @@ export function relativeToUri(relPath: string, rootPath: string) {
 export async function isDirectoryEmpty(dirUri: vscode.Uri): Promise<boolean> {
   const entries = await vscode.workspace.fs.readDirectory(dirUri);
   return entries.length === 0;
+}
+
+export function getWorkspaceType(): WorkspaceType {
+  let folders = vscode.workspace.workspaceFolders;
+  let editor = vscode.window.activeTextEditor;
+
+  if (folders && folders.length > 0) {
+    if (folders.length == 1) {
+      return WorkspaceType.SingleRootFolder;
+    } else {
+      return WorkspaceType.MultiRootFolder;
+    }
+  } else if (!folders && editor) {
+    return WorkspaceType.SingleFile;
+  } else {
+    return WorkspaceType.Empty;
+  }
 }

@@ -68,7 +68,8 @@ export class SessionInfoSidebarProvider implements vscode.TreeDataProvider<Node>
         label: "Participants",
         children: this.state.session.participants.map(p => {
           return {
-            label: p.displayName
+            label: p.displayName,
+            description: p.clientId === this.state.session?.awareness.clientID ? "You" + (p.type === "Host" ? " (Host)" : "") : p.type === "Host" ? "Host" : undefined
           }
         })
       }

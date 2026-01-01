@@ -2,11 +2,11 @@ import * as Y from "yjs";
 import * as path from "path";
 import * as vscode from "vscode";
 
-import { absoluteToRelative, isDirectoryEmpty, relativeToUri as relativeToAbsolute } from "./helpers/utilities.js";
+import { absoluteToRelative, isDirectoryEmpty, relativeToAbsolute } from "../helpers/utilities.js";
 
 import { Awareness } from "y-protocols/awareness.js";
-import { CursorSelection } from "./models/CursorSelection.js";
-import { CustomDecorationType } from "./models/CustomDecoratorType.js";
+import { CursorSelection } from "../models/CursorSelection.js";
+import { CustomDecorationType } from "../models/CustomDecoratorType.js";
 import WebSocket from "ws";
 import { WebsocketProvider } from "y-websocket";
 import { readdir } from "fs/promises";

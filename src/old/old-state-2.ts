@@ -2,8 +2,8 @@ import * as Y from "yjs";
 import * as vscode from "vscode";
 
 import { Awareness } from "y-protocols/awareness.js";
-import { CursorSelection } from "./models/CursorSelection.js";
-import { CustomDecorationType } from "./models/CustomDecoratorType.js";
+import { CursorSelection } from "../models/CursorSelection.js";
+import { CustomDecorationType } from "../models/CustomDecoratorType.js";
 import WebSocket from "ws";
 import { WebsocketProvider } from "y-websocket";
 import throttle from "lodash.throttle";
