@@ -42,10 +42,7 @@ export class Session {
     this.rootPath = rootPath;
     this.onChange = onChange;
 
-    this.awareness.on("change", ({added, updated, removed}: { added: Array<number>, updated: Array<number>, removed: Array<number> }) => { 
-      
-      vscode.window.showInformationMessage("On awareness");
-      
+    this.awareness.on("change", ({added, updated, removed}: { added: Array<number>, updated: Array<number>, removed: Array<number> }) => {   
       const allStates = this.awareness.getStates();
   
       added.forEach(id => {
@@ -106,7 +103,7 @@ export class Session {
     const filePath = vscode.Uri.file(relativeToAbsolute(relPath, this.rootPath));
     const doc = await vscode.workspace.openTextDocument(filePath);
     
-    const binding = new DocumentBinding(yText, doc, this.awareness);
+    const binding = new DocumentBinding(yText, doc, this.rootPath, this.awareness);
   }
 
   async createFile(
