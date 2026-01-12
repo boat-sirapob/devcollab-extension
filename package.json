@@ -27,28 +27,47 @@
         }
       ]
     },
+    "viewsWelcome": [
+      {
+        "view": "devcollab",
+        "contents": "[Host Session](command:devcollab.hostSession)\n[Join Session](command:devcollab.joinSession)"
+      }
+    ],
     "views": {
       "devcollab": [
         {
-          "type": "webview",
           "id": "devcollab",
           "name": "DevCollab",
           "icon": "media/devcollab.svg"
         }
       ]
     },
+    "menus": {
+      "view/title": [
+        {
+          "command": "devcollab.endSession",
+          "when": "devcollab.isInSession",
+          "group": "navigation"
+        }
+      ]
+    },
     "commands": [
       {
-        "command": "devcollab.connect",
-        "title": "DevCollab: Connect to peer"
+        "command": "devcollab.test",
+        "title": "DevCollab: Test Command"
       },
       {
-        "command": "devcollab.openConnection",
-        "title": "DevCollab: Open Connection"
+        "command": "devcollab.hostSession",
+        "title": "DevCollab: Host Session"
       },
       {
-        "command": "devcollab.sendMessage",
-        "title": "DevCollab: Send Message"
+        "command": "devcollab.joinSession",
+        "title": "DevCollab: Join Session"
+      },
+      {
+        "command": "devcollab.endSession",
+        "title": "DevCollab: End Session",
+        "icon": "$(close)"
       },
       {
         "command": "devcollab.undo",

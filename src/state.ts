@@ -1,0 +1,204 @@
+import * as path from "path";
+import * as vscode from "vscode";
+
+import { absoluteToRelative, getWorkspaceType, isDirectoryEmpty, relativeToAbsolute } from "./helpers/utilities.js";
+
+import { DocumentBinding } from "./DocumentBinding.js";
+import { Session } from "./session.js";
+import { SessionParticipant } from "./models/SessionParticipant.js";
+import { WorkspaceItem } from "./models/WorkspaceItem.js";
+import { WorkspaceType } from "./enums/WorkspaceType.js";
+import { readdir } from "fs/promises";
+
+export class ExtensionState {
+  private _onDidChange = new vscode.EventEmitter<void>();
+  readonly onDidChange = this._onDidChange.event;
+
+  loading: boolean;
+
+  session: Session | null;
+  
+  disposables: vscode.Disposable[];
+
+  constructor() {
+    this.loading = false;
+    this.session = null;
+    this.disposables = [];
+  }
+
+  dispose() {
+    for (const d of this.disposables) {
+      d.dispose();
+    }
+    this.disposables = [];
+  }
+
+  async test() {
+    console.log(this.session?.workspaceMap)
+  }
+
+  // https://stackblitz.com/edit/y-quill-doc-list?file=index.ts
+  async hostSession() {
+    this.loading = true;
+    this._onDidChange.fire();
+
+    let folders = vscode.workspace.workspaceFolders;
+    let editor = vscode.window.activeTextEditor;
+    let workspaceType = getWorkspaceType();
+
+    console.log(WorkspaceType[workspaceType]);
+    
+    let fileDirs = [];
+    switch (workspaceType) {
+      case WorkspaceType.Empty:
+        // todo: open file browser instead?
+        vscode.window.showInformationMessage("Open a file or folder to start collaborating!")
+        return;
+      case WorkspaceType.SingleFile:
+        // todo: get file name from path
+        // then create a Yjs document
+        break;
+      case WorkspaceType.SingleRootFolder:
+        const rootPath = folders![0].uri.fsPath;
+        
+        let username = await vscode.window.showInputBox({
+          title: "Display name",
+          placeHolder: "Enter your display name for this session (empty to cancel)",
+        });
+        if (!username) { 
+          vscode.window.showInformationMessage("Cancelled joining collaboration session.");    
+          this.loading = false;
+          this._onDidChange.fire();
+          return;
+        }
+
+        this.session = await Session.hostSession(rootPath, username, this._onDidChange);
+
+        await vscode.window.withProgress(
+          {
+            location: vscode.ProgressLocation.Notification,
+            title: "Connecting to collaboration server",
+            cancellable: false,
+          },
+          async () => {
+            try {
+              await this.session!.waitForConnection(5000);
+            } catch {
+              vscode.window.showErrorMessage("Unable to connect to collaboration server");
+              this.session!.provider.disconnect();
+              this.dispose();
+              this.session = null;
+            } finally {
+              this.loading = false;
+              this._onDidChange.fire();
+            }
+          }
+        );
+        if (this.session === null) { return; }
+        
+        vscode.window.showInformationMessage(
+          `Collaboration session started with room code: ${this.session.roomCode}`,
+          "Copy code to clipboard",
+        ).then(async copy => {
+          if (copy) {
+            await vscode.env.clipboard.writeText(this.session!.roomCode);
+            vscode.window.showInformationMessage(`Copied room code ${this.session!.roomCode} to clipboard!`);
+          }
+        });
+
+        break;
+      case WorkspaceType.MultiRootFolder:
+        vscode.window.showInformationMessage("Sorry, multi-rooted workspaces are not supported. Please open a file or folder to start collaborating.")
+        return;
+    }
+  }
+
+  async joinSession() {
+    if (this.session !== null) {
+      vscode.window.showErrorMessage("You are already in a collaboration session.");
+      return;
+    }
+
+    let folders = vscode.workspace.workspaceFolders;
+    let editor = vscode.window.activeTextEditor;
+    let workspaceType = getWorkspaceType();
+
+    // todo: fix this
+    if (workspaceType !== WorkspaceType.SingleRootFolder || !(await isDirectoryEmpty(folders![0].uri))) {
+      vscode.window.showInformationMessage("Open an empty folder to join a session.")
+      return;
+    }
+
+    const targetDir = folders![0].uri;
+
+    this.loading = true;
+    this._onDidChange.fire();
+
+    const roomCode = await vscode.window.showInputBox({
+      prompt: "Enter the room code for the collaboration session you want to join",
+      placeHolder: "Room Code"
+    });
+    if (!roomCode) {
+      vscode.window.showInformationMessage(
+        "Collaboration cancelled (no room name)."
+      );
+      this.loading = false;
+      this._onDidChange.fire();
+      return;
+    }
+
+    let username = await vscode.window.showInputBox({
+      title: "Display name",
+      placeHolder: "Enter your display name for this session (empty to cancel)",
+    });
+    if (!username) { 
+      vscode.window.showInformationMessage("Cancelled joining collaboration session.");    
+      this.loading = false;
+      this._onDidChange.fire();
+      return;
+    }
+
+    this.session = await Session.joinSession(roomCode, targetDir.fsPath, username, this._onDidChange);
+
+    await vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: "Connecting to collaboration server",
+        cancellable: false,
+      },
+      async () => {
+        try {
+          await this.session!.waitForConnection(5000);
+          vscode.window.showInformationMessage("Connected to collaboration server");
+        } catch {
+          vscode.window.showErrorMessage("Unable to connect to collaboration server");
+          this.session!.provider.disconnect();
+          this.dispose();
+          this.session = null;
+        } finally {
+          this.loading = false;
+          this._onDidChange.fire();
+        }
+      }
+    );
+  }
+
+  endSession() {
+    this.session?.provider.disconnect();
+
+    this.dispose();
+    this.session = null;
+    this._onDidChange.fire();
+  }
+
+  disconnectSession() {
+    
+  }
+
+  handleUndo() {
+  }
+  
+  handleRedo() {
+  }
+}
+
