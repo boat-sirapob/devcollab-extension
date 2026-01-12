@@ -2,18 +2,6 @@ import * as vscode from 'vscode';
 
 import { ExtensionState } from "./state.js";
 
-// class SessionInfoItem extends vscode.TreeItem {
-//   constructor(
-//     public readonly label: string,
-//     public readonly description: string,
-//     public readonly collapsibleState: vscode.TreeItemCollapsibleState = vscode.TreeItemCollapsibleState.None,
-//   ) {
-//     super(label, collapsibleState);
-
-//     this.description = description;
-//   }
-// }
-
 type Node = {
   label: string;
   description?: string;
@@ -53,7 +41,7 @@ export class SessionInfoSidebarProvider implements vscode.TreeDataProvider<Node>
     }
 
     if (this.state.session === null) { return []; }
-    
+
     return [
       {
         label: "Session Info",
@@ -69,7 +57,12 @@ export class SessionInfoSidebarProvider implements vscode.TreeDataProvider<Node>
         children: this.state.session.participants.map(p => {
           return {
             label: p.displayName,
-            description: p.clientId === this.state.session?.awareness.clientID ? "You" + (p.type === "Host" ? " (Host)" : "") : p.type === "Host" ? "Host" : undefined
+            description: 
+              (p.clientId === this.state.session?.awareness.clientID
+                ? "You" + (p.type === "Host" ? " (Host)" : "")
+                : p.type === "Host"
+                ? "Host"
+                : undefined)
           }
         })
       }

@@ -38,7 +38,10 @@ export class ExtensionState {
   }
 
   // https://stackblitz.com/edit/y-quill-doc-list?file=index.ts
-  async hostSession() {  
+  async hostSession() {
+    this.loading = true;
+    this._onDidChange.fire();
+
     let folders = vscode.workspace.workspaceFolders;
     let editor = vscode.window.activeTextEditor;
     let workspaceType = getWorkspaceType();
@@ -71,7 +74,27 @@ export class ExtensionState {
 
         this.session = await Session.hostSession(rootPath, username, this._onDidChange);
 
-        this.loading = false;
+        await vscode.window.withProgress(
+          {
+            location: vscode.ProgressLocation.Notification,
+            title: "Connecting to collaboration server",
+            cancellable: false,
+          },
+          async () => {
+            try {
+              await this.session!.waitForConnection(5000);
+            } catch {
+              vscode.window.showErrorMessage("Unable to connect to collaboration server");
+              this.session!.provider.disconnect();
+              this.dispose();
+              this.session = null;
+            } finally {
+              this.loading = false;
+              this._onDidChange.fire();
+            }
+          }
+        );
+        if (this.session === null) { return; }
         
         vscode.window.showInformationMessage(
           `Collaboration session started with room code: ${this.session.roomCode}`,
@@ -82,8 +105,6 @@ export class ExtensionState {
             vscode.window.showInformationMessage(`Copied room code ${this.session!.roomCode} to clipboard!`);
           }
         });
-    
-        this._onDidChange.fire();
 
         break;
       case WorkspaceType.MultiRootFolder:
@@ -102,7 +123,7 @@ export class ExtensionState {
     let editor = vscode.window.activeTextEditor;
     let workspaceType = getWorkspaceType();
 
-    // todo: fix whatever this is
+    // todo: fix this
     if (workspaceType !== WorkspaceType.SingleRootFolder || !(await isDirectoryEmpty(folders![0].uri))) {
       vscode.window.showInformationMessage("Open an empty folder to join a session.")
       return;
@@ -113,39 +134,18 @@ export class ExtensionState {
     this.loading = true;
     this._onDidChange.fire();
 
-    // const roomCode = await vscode.window.showInputBox({
-    //   prompt: "Enter the room code for the collaboration session you want to join",
-    //   placeHolder: "Room Code"
-    // });
-    // if (!roomCode) {
-    //   vscode.window.showInformationMessage(
-    //     "Collaboration cancelled (no room name)."
-    //   );
-    //   this.loading = false;
-    //   this._onDidChange.fire();
-    //   return;
-    // }
-    const roomCode = "dev-collab";
-
-    // const targetDirSelected = await vscode.window.showOpenDialog({
-    //   canSelectFiles: false,
-    //   canSelectFolders: true,
-    //   canSelectMany: false,
-    //   openLabel: "Select the folder for your collaboration session"
-    // });
-    // if (!targetDirSelected || targetDirSelected.length != 1) {
-    //   vscode.window.showInformationMessage("Cancelled joining collaboration session.");    
-    //   this.loading = false;
-    //   this._onDidChange.fire();
-    //   return;
-    // }
-    
-    // const targetDir = targetDirSelected[0];
-
-    // await vscode.commands.executeCommand(
-    //   "vscode.openFolder",
-    //   targetDir
-    // );
+    const roomCode = await vscode.window.showInputBox({
+      prompt: "Enter the room code for the collaboration session you want to join",
+      placeHolder: "Room Code"
+    });
+    if (!roomCode) {
+      vscode.window.showInformationMessage(
+        "Collaboration cancelled (no room name)."
+      );
+      this.loading = false;
+      this._onDidChange.fire();
+      return;
+    }
 
     let username = await vscode.window.showInputBox({
       title: "Display name",
@@ -160,8 +160,27 @@ export class ExtensionState {
 
     this.session = await Session.joinSession(roomCode, targetDir.fsPath, username, this._onDidChange);
 
-    this.loading = false;
-    this._onDidChange.fire();
+    await vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: "Connecting to collaboration server",
+        cancellable: false,
+      },
+      async () => {
+        try {
+          await this.session!.waitForConnection(5000);
+          vscode.window.showInformationMessage("Connected to collaboration server");
+        } catch {
+          vscode.window.showErrorMessage("Unable to connect to collaboration server");
+          this.session!.provider.disconnect();
+          this.dispose();
+          this.session = null;
+        } finally {
+          this.loading = false;
+          this._onDidChange.fire();
+        }
+      }
+    );
   }
 
   endSession() {

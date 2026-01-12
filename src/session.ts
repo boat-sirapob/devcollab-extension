@@ -31,6 +31,7 @@ export class Session {
   awareness: Awareness;
   rootPath: string;
   onChange: vscode.EventEmitter<void>
+  connected: boolean;
 
   constructor(roomCode: string, rootPath: string, onChange: vscode.EventEmitter<void>) {
     this.roomCode = roomCode;
@@ -41,6 +42,8 @@ export class Session {
     this.awareness = this.provider.awareness;
     this.rootPath = rootPath;
     this.onChange = onChange;
+    this.connected = false;
+
 
     this.awareness.on("change", ({added, updated, removed}: { added: Array<number>, updated: Array<number>, removed: Array<number> }) => {   
       const allStates = this.awareness.getStates();
@@ -54,7 +57,7 @@ export class Session {
           clientId: id,
           displayName: user.name,
           color: user.color,
-          type: user.type
+          type: user.type,
         })
         this.onChange.fire();
       });
@@ -69,7 +72,7 @@ export class Session {
     });
   }
 
-  private generateRoomCode(length = 6) {
+  static generateRoomCode(length = 6) {
     const chars = "1234567890";
     let code = "";
     for (let i = 0; i < length; i++) {
@@ -129,8 +132,7 @@ export class Session {
 
   static async hostSession(rootPath: string, username: string, sidebarUpdateCallback: vscode.EventEmitter<void>): Promise<Session> {
     
-    // const roomCode = this.generateRoomCode();
-    const roomCode = "dev-collab";
+    const roomCode = Session.generateRoomCode();
 
     let session = new Session(roomCode, rootPath, sidebarUpdateCallback);
 
@@ -190,5 +192,30 @@ export class Session {
     });
 
     return session;
+  }
+
+  async waitForConnection(
+    timeoutMs = 5000
+  ): Promise<"connected"> {
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        cleanup();
+        reject(new Error("timeout"));
+      }, timeoutMs);
+
+      const onStatus = ({ status }: { status: "connected" | "disconnected" | "connecting" }) => {
+        if (status === "connected") {
+          cleanup();
+          resolve("connected");
+        }
+      };
+
+      const cleanup = () => {
+        clearTimeout(timeout);
+        this.provider.off("status", onStatus);
+      };
+
+      this.provider.on("status", onStatus);
+    });
   }
 }
