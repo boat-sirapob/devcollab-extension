@@ -64,8 +64,6 @@ export class DocumentBinding {
       this.mux(() => {
         if (this.doc !== event.document || this.applyingRemote) { return; }
         
-        vscode.window.showInformationMessage(`Test ${event.document.fileName}`);
-  
         let changesCopy = [...event.contentChanges];
         this.yText.doc!.transact(() => {
           changesCopy
@@ -94,7 +92,6 @@ export class DocumentBinding {
       }
     
       // set new decorations
-      vscode.window.showInformationMessage(`change uri ${this.doc.uri}`);
       for (const [clientId, state] of allStates.entries()) {
         if (clientId === this.awareness.clientID) { continue; }
         
@@ -112,19 +109,11 @@ export class DocumentBinding {
             overviewRulerLane: vscode.OverviewRulerLane.Right,
           });
     
-          // const cursorDecoration = vscode.window.createTextEditorDecorationType({
-          //   borderColor: user.color,
-          //   borderWidth: "1px",
-          //   borderStyle: "solid",
-          //   rangeBehavior: vscode.DecorationRangeBehavior.ClosedOpen,
-          //   overviewRulerColor: user.color,
-          //   overviewRulerLane: vscode.OverviewRulerLane.Right,
-          // });
           const cursorDecoration = vscode.window.createTextEditorDecorationType({
             before: {
               backgroundColor: `${user.color}`,
               contentText: user.name,
-              textDecoration: "none; position: absolute; top: var(--vscode-editorCodeLens-lineHeight); padding: 2px;"
+              textDecoration: "none; position: absolute; top: var(--vscode-editorCodeLens-lineHeight); padding: 2px; color: black;"
             },
             borderColor: user.color,
             borderWidth: "1px",
