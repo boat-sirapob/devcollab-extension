@@ -134,7 +134,7 @@ export class Session {
     this.participants.push(participant);
   }
 
-  static async hostSession(rootPath: string, username: string, sidebarUpdateCallback: vscode.EventEmitter<void>): Promise<Session> {
+  static async hostSession(rootPath: string, username: string, sidebarUpdateCallback: vscode.EventEmitter<void>, singleFilePath?: string): Promise<Session> {
     
     const roomCode = Session.generateRoomCode();
 
@@ -156,12 +156,20 @@ export class Session {
       type: user.type,
     });
 
-    let files = await session.getFiles();
+    let files;
+
+    if (singleFilePath) {
+      // Only host the single specified file
+      const rel = absoluteToRelative(singleFilePath, rootPath);
+      files = [{ name: path.basename(singleFilePath), path: rel }];
+    } else {
+      files = await session.getFiles();
+    }
     
     for (const file of files) {
       let yText = new Y.Text();
-      await session.bindDocument(file.path, yText);
       session.workspaceMap.set(file.path, yText);
+      await session.bindDocument(file.path, yText);
     }
 
     return session
