@@ -33,6 +33,8 @@ export class Session {
   onChange: vscode.EventEmitter<void>
   connected: boolean;
 
+  bindings: Map<string, DocumentBinding>;
+
   constructor(roomCode: string, rootPath: string, onChange: vscode.EventEmitter<void>) {
     this.roomCode = roomCode;
     this.participants = [];
@@ -43,6 +45,8 @@ export class Session {
     this.rootPath = rootPath;
     this.onChange = onChange;
     this.connected = false;
+
+    this.bindings = new Map();
 
     this.provider.on("status", event => {
       vscode.window.showInformationMessage(`Status: ${event.status}`);
@@ -111,6 +115,7 @@ export class Session {
     const doc = await vscode.workspace.openTextDocument(filePath);
     
     const binding = new DocumentBinding(yText, doc, this.rootPath, this.awareness);
+    this.bindings.set(relPath, binding);
   }
 
   async createFile(
@@ -159,7 +164,6 @@ export class Session {
     let files;
 
     if (singleFilePath) {
-      // Only host the single specified file
       const rel = absoluteToRelative(singleFilePath, rootPath);
       files = [{ name: path.basename(singleFilePath), path: rel }];
     } else {

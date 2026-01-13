@@ -234,9 +234,39 @@ export class ExtensionState {
   }
 
   handleUndo() {
+    const editor = vscode.window.activeTextEditor;
+
+    if (!this.session || !editor) {
+      vscode.commands.executeCommand("undo");
+      return;
+    }
+
+    const relPath = absoluteToRelative(editor.document.uri.fsPath.toString(), this.session.rootPath);
+    const binding = this.session.bindings.get(relPath);
+
+    if (binding?.yUndoManager) {
+      binding.yUndoManager.undo();
+    } else {
+      vscode.commands.executeCommand("undo");
+    }
   }
   
   handleRedo() {
+    const editor = vscode.window.activeTextEditor;
+
+    if (!this.session || !editor) {
+      vscode.commands.executeCommand("redo");
+      return;
+    }
+
+    const relPath = absoluteToRelative(editor.document.uri.fsPath.toString(), this.session.rootPath);
+    const binding = this.session.bindings.get(relPath);
+
+    if (binding?.yUndoManager) {
+      binding.yUndoManager.redo();
+    } else {
+      void vscode.commands.executeCommand("redo");
+    }
   }
 }
 
