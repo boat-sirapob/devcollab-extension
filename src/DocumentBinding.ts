@@ -76,6 +76,36 @@ export class DocumentBinding {
       })
     });
 
+    // initial push
+    if (yText.toString().length === 0 && doc.getText().length > 0) {
+      yText.doc!.transact(() => {
+        yText.insert(0, doc.getText());
+      }, this);
+    }
+
+    // initial load
+    this.mux(async () => {
+      const fullText = this.yText.toString();
+      const oldText = this.doc.getText();
+      if (fullText === oldText) { return; }
+
+      this.applyingRemote = true;
+      try {
+        let edit = new vscode.WorkspaceEdit();
+        edit.replace(
+          this.doc.uri,
+          new vscode.Range(
+            this.doc.positionAt(0),
+            this.doc.positionAt(oldText.length)
+          ),
+          fullText
+        );
+        await vscode.workspace.applyEdit(edit);
+      } finally {
+        this.applyingRemote = false;
+      }
+    });
+
     // todo: make name tag disappear after some time / appear on hover? 
     // todo: test with multiple guests
     this.awareness.on("change", ({added, updated, removed}: { added: Array<number>, updated: Array<number>, removed: Array<number> }) => { 
