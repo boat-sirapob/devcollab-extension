@@ -169,6 +169,15 @@ export class ExtensionState {
       async () => {
         try {
           await this.session!.waitForConnection(5000);
+          const hostFound = await this.session!.waitForHost(2000);
+          if (!hostFound) {
+            vscode.window.showErrorMessage(`A room with the code ${this.session?.roomCode} could not be found.`);
+            this.session!.provider.disconnect();
+            this.dispose();
+            this.session = null;
+            return;
+          }
+
           vscode.window.showInformationMessage("Connected to collaboration server");
         } catch {
           vscode.window.showErrorMessage("Unable to connect to collaboration server");

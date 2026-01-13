@@ -44,6 +44,10 @@ export class Session {
     this.onChange = onChange;
     this.connected = false;
 
+    this.provider.on("status", event => {
+      vscode.window.showInformationMessage(`Status: ${event.status}`);
+      this.connected = true;
+    });
 
     this.awareness.on("change", ({added, updated, removed}: { added: Array<number>, updated: Array<number>, removed: Array<number> }) => {   
       const allStates = this.awareness.getStates();
@@ -192,6 +196,44 @@ export class Session {
     });
 
     return session;
+  }
+
+  async waitForHost(timeoutMs = 2000): Promise<boolean> {
+    const checkForHost = () => {
+      const allStates = this.awareness.getStates();
+      for (const [, state] of allStates) {
+        const user = (state as any).user;
+        if (user?.type === "Host") {
+          return true;
+        }
+      }
+      return false;
+    };
+
+    if (checkForHost()) {
+      return true;
+    }
+
+    return new Promise<boolean>((resolve) => {
+      const timeout = setTimeout(() => {
+        cleanup();
+        resolve(false);
+      }, timeoutMs);
+
+      const onChange = () => {
+        if (checkForHost()) {
+          cleanup();
+          resolve(true);
+        }
+      };
+
+      const cleanup = () => {
+        clearTimeout(timeout);
+        this.awareness.off("change", onChange);
+      };
+
+      this.awareness.on("change", onChange);
+    });
   }
 
   async waitForConnection(
