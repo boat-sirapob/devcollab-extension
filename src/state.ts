@@ -86,7 +86,7 @@ export class ExtensionState {
       placeHolder: "Enter your display name for this session (empty to cancel)",
     });
     if (!username) { 
-      vscode.window.showInformationMessage("Cancelled joining collaboration session.");    
+      vscode.window.showInformationMessage("Cancelled hosting collaboration session.");    
       this.loading = false;
       this._onDidChange.fire();
       return;
@@ -125,10 +125,19 @@ export class ExtensionState {
       "Copy code to clipboard",
     ).then(async copy => {
       if (copy) {
-        await vscode.env.clipboard.writeText(this.session!.roomCode);
-        vscode.window.showInformationMessage(`Copied room code ${this.session!.roomCode} to clipboard!`);
+        this.copyRoomCode(this.session?.roomCode);
       }
     });
+  }
+
+  async copyRoomCode(roomCode?: string) {
+    const code = roomCode ?? this.session?.roomCode;
+    if (!code) {
+      vscode.window.showErrorMessage("No active collaboration session to copy code from.");
+      return;
+    }
+    await vscode.env.clipboard.writeText(code);
+    vscode.window.showInformationMessage(`Copied room code ${code} to clipboard!`);
   }
 
   async joinSession() {
@@ -160,7 +169,7 @@ export class ExtensionState {
     });
     if (!roomCode) {
       vscode.window.showInformationMessage(
-        "Collaboration cancelled (no room name)."
+        "Cancelled joining collaboration session."
       );
       this.loading = false;
       this._onDidChange.fire();
