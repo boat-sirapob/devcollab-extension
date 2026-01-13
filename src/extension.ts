@@ -42,6 +42,10 @@ export function activate(context: vscode.ExtensionContext) {
       command: "devcollab.redo",
       callback: state.handleRedo,
     },
+    {
+      command: "devcollab.copyRoomCode",
+      callback: state.copyRoomCode,
+    },
   ];
 
   commands.forEach((c) => {

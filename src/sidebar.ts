@@ -6,6 +6,7 @@ type Node = {
   label: string;
   description?: string;
   children?: Node[];
+  command?: { command: string; title: string; arguments?: any[] };
 }
 
 export class SessionInfoSidebarProvider implements vscode.TreeDataProvider<Node> {
@@ -24,6 +25,10 @@ export class SessionInfoSidebarProvider implements vscode.TreeDataProvider<Node>
       node.children ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.None,
     );
     item.description = node.description;
+    if (node.command) {
+      // assign command to allow clicking the item
+      item.command = node.command as any;
+    }
     return item;
   }
 
@@ -49,6 +54,11 @@ export class SessionInfoSidebarProvider implements vscode.TreeDataProvider<Node>
           {
             label: "Room Code",
             description: this.state.session.roomCode,
+            command: {
+              command: "devcollab.copyRoomCode",
+              title: "Copy room code",
+              arguments: [this.state.session.roomCode]
+            }
           }
         ]
       },

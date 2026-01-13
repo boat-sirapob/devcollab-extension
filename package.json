@@ -76,6 +76,10 @@
       {
         "command": "devcollab.redo",
         "title": "DevCollab: Redo"
+      },
+      {
+        "command": "devcollab.copyRoomCode",
+        "title": "DevCollab: Copy Room Code"
       }
     ],
     "keybindings": [

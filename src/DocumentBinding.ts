@@ -17,8 +17,12 @@ export class DocumentBinding {
 
   applyingRemote: boolean;
   mux: mutex;
+
+  // Yjs UndoManager for this document
+  yUndoManager?: Y.UndoManager;
   
   decorationTypeMap = new Map<number, CustomDecorationType>();
+
 
   constructor(yText: Y.Text, doc: vscode.TextDocument, rootPath: string, awareness: Awareness) {
     this.yText = yText;
@@ -28,6 +32,9 @@ export class DocumentBinding {
     
     this.applyingRemote = false;
     this.mux = createMutex();
+
+    // Track local edits for undo/redo
+    this.yUndoManager = new Y.UndoManager(this.yText, { trackedOrigins: new Set([this]) });
 
     this.yText.observe(
       throttle(async (event: Y.YTextEvent, transaction: Y.Transaction) => {
