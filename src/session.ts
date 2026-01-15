@@ -32,6 +32,7 @@ export class Session {
   rootPath: string;
   onChange: vscode.EventEmitter<void>
   connected: boolean;
+  onHostDisconnect?: () => void;
 
   bindings: Map<string, DocumentBinding>;
 
@@ -78,9 +79,24 @@ export class Session {
         this.onChange.fire();
       });
 
-      // Fire update event for cursor/file changes
       if (updated.length > 0) {
         this.onChange.fire();
+      }
+
+      // disconnect on session end
+      let hostPresent = false;
+      for (const [, state] of allStates) {
+        const user = (state as any).user;
+        if (user?.type === "Host") {
+          hostPresent = true;
+          break;
+        }
+      }
+      
+      if (!hostPresent && this.connected) {
+        vscode.window.showInformationMessage("Host has ended the session. Disconnecting...");
+        this.provider.disconnect();
+        this.onHostDisconnect?.();
       }
     });
   }
