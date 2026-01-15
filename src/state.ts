@@ -189,6 +189,10 @@ export class ExtensionState {
 
     this.session = await Session.joinSession(roomCode, targetDir.fsPath, username, this._onDidChange);
 
+    this.session.onHostDisconnect = () => {
+      this.disconnectSession();
+    };
+
     await vscode.window.withProgress(
       {
         location: vscode.ProgressLocation.Notification,
@@ -230,7 +234,11 @@ export class ExtensionState {
   }
 
   disconnectSession() {
+    this.session?.provider.disconnect();
     
+    this.dispose();
+    this.session = null;
+    this._onDidChange.fire();
   }
 
   handleUndo() {
