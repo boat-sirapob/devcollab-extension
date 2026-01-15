@@ -77,6 +77,11 @@ export class Session {
   
         this.onChange.fire();
       });
+
+      // Fire update event for cursor/file changes
+      if (updated.length > 0) {
+        this.onChange.fire();
+      }
     });
   }
 
