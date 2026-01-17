@@ -35,6 +35,8 @@ export class Session {
   onHostDisconnect?: () => void;
 
   bindings: Map<string, DocumentBinding>;
+  fileSystemWatcher?: vscode.FileSystemWatcher;
+  isApplyingRemoteChange: boolean;
 
   constructor(roomCode: string, rootPath: string, onChange: vscode.EventEmitter<void>) {
     this.roomCode = roomCode;
@@ -46,6 +48,7 @@ export class Session {
     this.rootPath = rootPath;
     this.onChange = onChange;
     this.connected = false;
+    this.isApplyingRemoteChange = false;
 
     this.bindings = new Map();
 
@@ -99,6 +102,10 @@ export class Session {
         this.onHostDisconnect?.();
       }
     });
+
+    // sync file creation and deletion
+    this.workspaceMap.observe(this.fileChangeHandler);
+    this.setupFileWatcher();
   }
 
   static generateRoomCode(length = 6) {
@@ -132,11 +139,53 @@ export class Session {
   }
 
   async bindDocument(relPath: string, yText: Y.Text) {
+    const oldBinding = this.bindings.get(relPath);
+    if (oldBinding) {
+      oldBinding.dispose();
+    }
+
     const filePath = vscode.Uri.file(relativeToAbsolute(relPath, this.rootPath));
     const doc = await vscode.workspace.openTextDocument(filePath);
     
     const binding = new DocumentBinding(yText, doc, this.rootPath, this.awareness);
     this.bindings.set(relPath, binding);
+  }
+
+  setupFileWatcher() {
+    const pattern = new vscode.RelativePattern(this.rootPath, '**');
+    this.fileSystemWatcher = vscode.workspace.createFileSystemWatcher(pattern);
+
+    // handle file creation
+    this.fileSystemWatcher.onDidCreate(async (uri: vscode.Uri) => {
+      if (this.isApplyingRemoteChange) return;
+
+      const relPath = absoluteToRelative(uri.fsPath, this.rootPath);
+      const stat = await vscode.workspace.fs.stat(uri);
+
+      if (stat.type === vscode.FileType.File) {
+        if (!this.workspaceMap.has(relPath)) {
+          const yText = new Y.Text();
+          this.workspaceMap.set(relPath, yText);
+          await this.bindDocument(relPath, yText);
+        }
+      }
+    });
+
+    // handle file deletion
+    this.fileSystemWatcher.onDidDelete((uri: vscode.Uri) => {
+      if (this.isApplyingRemoteChange) return;
+
+      const relPath = absoluteToRelative(uri.fsPath, this.rootPath);
+      
+      if (this.workspaceMap.has(relPath)) {
+        this.workspaceMap.delete(relPath);
+        const binding = this.bindings.get(relPath);
+        if (binding) {
+          binding.dispose();
+        }
+        this.bindings.delete(relPath);
+      }
+    });
   }
 
   async createFile(
@@ -158,6 +207,38 @@ export class Session {
 
   addParticipant(participant: SessionParticipant) {
     this.participants.push(participant);
+  }
+
+  fileChangeHandler = async (event: Y.YMapEvent<Y.Text>) => {    
+    this.isApplyingRemoteChange = true;
+    try {
+      for (const key of event.keysChanged) {
+        const yText = this.workspaceMap.get(key);
+        
+        if (yText) {
+          // sync file creation
+          if (!this.bindings.has(key)) {
+            await this.createFile(key);
+            await this.bindDocument(key, yText);
+          }
+        } else {
+          // sync file deletion
+          const fileUri = vscode.Uri.file(relativeToAbsolute(key, this.rootPath));
+          try {
+            await vscode.workspace.fs.delete(fileUri);
+            const binding = this.bindings.get(key);
+            if (binding) {
+              binding.dispose();
+            }
+            this.bindings.delete(key);
+          } catch (e) {
+            console.error(`Failed to delete file ${key}:`, e);
+          }
+        }
+      }
+    } finally {
+      this.isApplyingRemoteChange = false;
+    }
   }
 
   static async hostSession(rootPath: string, username: string, sidebarUpdateCallback: vscode.EventEmitter<void>, singleFilePath?: string): Promise<Session> {
@@ -196,7 +277,7 @@ export class Session {
       session.workspaceMap.set(file.path, yText);
       await session.bindDocument(file.path, yText);
     }
-
+    
     return session
   }
 
@@ -217,15 +298,6 @@ export class Session {
       name: user.displayName,
       color: user.color,
       type: user.type,
-    });
-
-    session.workspaceMap.observe(async () => {
-      // setup
-
-      for (const [fileRelPath, yText] of session.workspaceMap.entries()) {
-        await session.createFile(fileRelPath);
-        await session.bindDocument(fileRelPath, yText);
-      }
     });
 
     return session;
@@ -292,5 +364,18 @@ export class Session {
 
       this.provider.on("status", onStatus);
     });
+  }
+
+  dispose() {
+    for (const binding of this.bindings.values()) {
+      binding.dispose();
+    }
+    this.bindings.clear();
+
+    if (this.fileSystemWatcher) {
+      this.fileSystemWatcher.dispose();
+    }
+
+    this.provider.disconnect();
   }
 }

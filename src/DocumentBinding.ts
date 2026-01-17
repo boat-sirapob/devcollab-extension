@@ -18,11 +18,15 @@ export class DocumentBinding {
   applyingRemote: boolean;
   mux: mutex;
 
-  // Yjs UndoManager for this document
   yUndoManager?: Y.UndoManager;
   
   decorationTypeMap = new Map<number, CustomDecorationType>();
 
+  // for cleanup
+  private yTextObserver?: (event: Y.YTextEvent, transaction: Y.Transaction) => void;
+  private textDocumentChangeListener?: vscode.Disposable;
+  private awarenessChangeListener?: (event: { added: Array<number>, updated: Array<number>, removed: Array<number> }) => void;
+  private textEditorSelectionListener?: vscode.Disposable;
 
   constructor(yText: Y.Text, doc: vscode.TextDocument, rootPath: string, awareness: Awareness) {
     this.yText = yText;
@@ -36,38 +40,38 @@ export class DocumentBinding {
     // Track local edits for undo/redo
     this.yUndoManager = new Y.UndoManager(this.yText, { trackedOrigins: new Set([this]) });
 
-    this.yText.observe(
-      throttle(async (event: Y.YTextEvent, transaction: Y.Transaction) => {
-        if (transaction.origin === this) { return; }
+    this.yTextObserver = throttle(async (event: Y.YTextEvent, transaction: Y.Transaction) => {
+      if (transaction.origin === this) { return; }
+      
+      await this.mux(async () => {
+        const fullText = this.yText.toString();
+        const oldText = this.doc.getText();
         
-        await this.mux(async () => {
-          const fullText = this.yText.toString();
-          const oldText = this.doc.getText();
-          
-          if (fullText === oldText) { return; }
-  
-          this.applyingRemote = true;
-          
-          try {
-            let edit = new vscode.WorkspaceEdit();
-            edit.replace(
-              this.doc.uri,
-              new vscode.Range(
-                this.doc.positionAt(0),
-                this.doc.positionAt(oldText.length)
-              ),
-              fullText
-            );
-            await vscode.workspace.applyEdit(edit);
-          } finally {
-            this.applyingRemote = false;
-          }
-        })
-      }, 40)
-    );
+        if (fullText === oldText) { return; }
+
+        this.applyingRemote = true;
+        
+        try {
+          let edit = new vscode.WorkspaceEdit();
+          edit.replace(
+            this.doc.uri,
+            new vscode.Range(
+              this.doc.positionAt(0),
+              this.doc.positionAt(oldText.length)
+            ),
+            fullText
+          );
+          await vscode.workspace.applyEdit(edit);
+        } finally {
+          this.applyingRemote = false;
+        }
+      })
+    }, 40);
+
+    this.yText.observe(this.yTextObserver);
 
     // push local text changes
-    vscode.workspace.onDidChangeTextDocument((event: vscode.TextDocumentChangeEvent) => {
+    this.textDocumentChangeListener = vscode.workspace.onDidChangeTextDocument((event: vscode.TextDocumentChangeEvent) => {
       this.mux(() => {
         if (this.doc !== event.document || this.applyingRemote) { return; }
         
@@ -115,7 +119,7 @@ export class DocumentBinding {
 
     // todo: make name tag disappear after some time / appear on hover? 
     // todo: test with multiple guests
-    this.awareness.on("change", ({added, updated, removed}: { added: Array<number>, updated: Array<number>, removed: Array<number> }) => { 
+    this.awarenessChangeListener = ({added, updated, removed}: { added: Array<number>, updated: Array<number>, removed: Array<number> }) => { 
       const allStates = this.awareness.getStates();
   
       const editor = vscode.window.visibleTextEditors.find(e => e.document.uri === this.doc.uri);
@@ -195,10 +199,12 @@ export class DocumentBinding {
         editor.setDecorations(decorations.selection, selectionRanges);
         editor.setDecorations(decorations.cursor, cursorOptions);
       }
-    });
+    };
+
+    this.awareness.on("change", this.awarenessChangeListener);
 
     // push local selection changes
-    vscode.window.onDidChangeTextEditorSelection((event: vscode.TextEditorSelectionChangeEvent) => {
+    this.textEditorSelectionListener = vscode.window.onDidChangeTextEditorSelection((event: vscode.TextEditorSelectionChangeEvent) => {
       if (event.textEditor.document.uri !== this.doc.uri) { return; }
 
       // todo: type safety
@@ -214,5 +220,32 @@ export class DocumentBinding {
 
   get relUri() {
     return absoluteToRelative(this.doc.uri.fsPath.toString(), this.rootPath);
+  }
+
+  dispose() {
+    if (this.yTextObserver) {
+      this.yText.unobserve(this.yTextObserver);
+    }
+
+    if (this.awarenessChangeListener) {
+      this.awareness.off("change", this.awarenessChangeListener);
+    }
+
+    if (this.textDocumentChangeListener) {
+      this.textDocumentChangeListener.dispose();
+    }
+    if (this.textEditorSelectionListener) {
+      this.textEditorSelectionListener.dispose();
+    }
+
+    if (this.yUndoManager) {
+      this.yUndoManager.destroy();
+    }
+
+    for (const decorations of this.decorationTypeMap.values()) {
+      decorations.selection.dispose();
+      decorations.cursor.dispose();
+    }
+    this.decorationTypeMap.clear();
   }
 }
