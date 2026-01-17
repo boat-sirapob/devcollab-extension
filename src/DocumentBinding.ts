@@ -37,7 +37,6 @@ export class DocumentBinding {
     this.applyingRemote = false;
     this.mux = createMutex();
 
-    // Track local edits for undo/redo
     this.yUndoManager = new Y.UndoManager(this.yText, { trackedOrigins: new Set([this]) });
 
     this.yTextObserver = throttle(async (event: Y.YTextEvent, transaction: Y.Transaction) => {
@@ -141,7 +140,6 @@ export class DocumentBinding {
         
         if (!user || !cursor || !cursor.selections || cursor.uri !== this.relUri) { continue; }
     
-        // Get or create decorations for this user
         let decorations = this.decorationTypeMap.get(clientId);
         if (!decorations) {
           const selectionDecoration = vscode.window.createTextEditorDecorationType({
@@ -172,7 +170,6 @@ export class DocumentBinding {
         const cursorRanges: vscode.Range[] = [];
     
         for (const sel of cursor.selections as CursorSelection[]) {
-          // Highlight the selection range (if any)
           if (!(sel.anchor.line === sel.head.line && sel.anchor.character === sel.head.character)) {
             selectionRanges.push(
               new vscode.Range(
@@ -182,7 +179,6 @@ export class DocumentBinding {
             );
           }
     
-          // Draw the cursor border only at the head position
           cursorRanges.push(
             new vscode.Range(
               new vscode.Position(sel.head.line, sel.head.character),

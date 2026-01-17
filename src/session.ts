@@ -6,8 +6,8 @@ import { absoluteToRelative, relativeToAbsolute } from "./helpers/utilities.js";
 
 import { Awareness } from "y-protocols/awareness.js";
 import { DocumentBinding } from "./DocumentBinding.js";
+import { HocuspocusProvider } from '@hocuspocus/provider'
 import { SessionParticipant } from "./models/SessionParticipant.js";
-import { WebsocketProvider } from "y-websocket";
 import { WorkspaceItem } from "./models/WorkspaceItem.js";
 import { readdir } from "fs/promises";
 
@@ -27,7 +27,7 @@ export class Session {
   participants: SessionParticipant[];
   doc: Y.Doc;
   workspaceMap: Y.Map<Y.Text>
-  provider: WebsocketProvider;
+  provider: HocuspocusProvider;
   awareness: Awareness;
   rootPath: string;
   onChange: vscode.EventEmitter<void>
@@ -42,9 +42,13 @@ export class Session {
     this.roomCode = roomCode;
     this.participants = [];
     this.doc = new Y.Doc();
-    this.provider = new WebsocketProvider("ws://localhost:1234", roomCode, this.doc);
+    this.provider = new HocuspocusProvider({
+      url: "ws://localhost:1234/collaboration",
+      name: roomCode,
+      document: this.doc
+    });
     this.workspaceMap = this.doc.getMap<Y.Text>("workspace-map");
-    this.awareness = this.provider.awareness;
+    this.awareness = this.provider.awareness!;
     this.rootPath = rootPath;
     this.onChange = onChange;
     this.connected = false;
@@ -52,9 +56,8 @@ export class Session {
 
     this.bindings = new Map();
 
-    this.provider.on("status", event => {
-      vscode.window.showInformationMessage(`Status: ${event.status}`);
-      this.connected = true;
+    this.provider.on("status", ({ status }: { status: "connected" | "disconnected" | "connecting" })  => {
+      this.connected = status === "connected";
     });
 
     this.awareness.on("change", ({added, updated, removed}: { added: Array<number>, updated: Array<number>, removed: Array<number> }) => {   
