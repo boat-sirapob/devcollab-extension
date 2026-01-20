@@ -226,6 +226,8 @@ export class ExtensionState {
   }
 
   endSession() {
+    vscode.window.showInformationMessage("The collaboration session has been ended.");
+
     this.session?.provider.disconnect();
 
     this.dispose();
@@ -234,6 +236,8 @@ export class ExtensionState {
   }
 
   disconnectSession() {
+    vscode.window.showInformationMessage("You have disconnected from the collaboration session.");
+    
     this.session?.provider.disconnect();
     
     this.dispose();
