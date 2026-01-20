@@ -43,7 +43,7 @@ export class Session {
     this.participants = [];
     this.doc = new Y.Doc();
     this.provider = new HocuspocusProvider({
-      url: "ws://localhost:1234/collaboration",
+      url: "wss://collab.boat-sirapob.com",
       name: roomCode,
       document: this.doc
     });
