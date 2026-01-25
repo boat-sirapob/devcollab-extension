@@ -1,8 +1,6 @@
 import * as Y from "yjs";
 import * as vscode from "vscode";
 
-import { createMutex, mutex } from "lib0/mutex";
-
 import { Awareness } from "y-protocols/awareness.js";
 import { CursorSelection } from "./models/CursorSelection.js";
 import { CustomDecorationType } from "./models/CustomDecoratorType.js";
@@ -16,7 +14,7 @@ export class DocumentBinding {
   awareness: Awareness;
 
   applyingRemote: boolean;
-  mux: mutex;
+  remoteChangeQueue: Promise<void> = Promise.resolve();
 
   yUndoManager?: Y.UndoManager;
   
@@ -24,6 +22,8 @@ export class DocumentBinding {
 
   // for cleanup
   private yTextObserver?: (event: Y.YTextEvent, transaction: Y.Transaction) => void;
+  private applyRemoteChange?: () => void;
+  private applyRemoteChangeThrottled?: ((...args: any[]) => any) & { cancel?: () => void; flush?: () => void };
   private textDocumentChangeListener?: vscode.Disposable;
   private awarenessChangeListener?: (event: { added: Array<number>, updated: Array<number>, removed: Array<number> }) => void;
   private textEditorSelectionListener?: vscode.Disposable;
@@ -35,14 +35,11 @@ export class DocumentBinding {
     this.awareness = awareness;
     
     this.applyingRemote = false;
-    this.mux = createMutex();
 
     this.yUndoManager = new Y.UndoManager(this.yText, { trackedOrigins: new Set([this]) });
 
-    this.yTextObserver = throttle(async (event: Y.YTextEvent, transaction: Y.Transaction) => {
-      if (transaction.origin === this) { return; }
-      
-      await this.mux(async () => {
+    this.applyRemoteChangeThrottled = throttle(async () => {
+      this.remoteChangeQueue = this.remoteChangeQueue.then(async () => {
         const fullText = this.yText.toString();
         const oldText = this.doc.getText();
         
@@ -64,26 +61,36 @@ export class DocumentBinding {
         } finally {
           this.applyingRemote = false;
         }
-      })
+      });
     }, 40);
+
+    this.applyRemoteChange = () => {
+      if (this.applyRemoteChangeThrottled) {
+        this.applyRemoteChangeThrottled();
+      }
+    };
+
+    this.yTextObserver = (event: Y.YTextEvent, transaction: Y.Transaction) => {
+      if (transaction.origin === this) { return; }
+      
+      this.applyRemoteChange!();
+    };
 
     this.yText.observe(this.yTextObserver);
 
     // push local text changes
     this.textDocumentChangeListener = vscode.workspace.onDidChangeTextDocument((event: vscode.TextDocumentChangeEvent) => {
-      this.mux(() => {
-        if (this.doc !== event.document || this.applyingRemote) { return; }
-        
-        let changesCopy = [...event.contentChanges];
-        this.yText.doc!.transact(() => {
-          changesCopy
-            .sort((change1, change2) => change2.rangeOffset - change1.rangeOffset)
-            .forEach((change) => {
-              this.yText.delete(change.rangeOffset, change.rangeLength);
-              this.yText.insert(change.rangeOffset, change.text);
-            });
-        }, this);
-      })
+      if (this.doc !== event.document || this.applyingRemote) { return; }
+      
+      let changesCopy = [...event.contentChanges];
+      this.yText.doc!.transact(() => {
+        changesCopy
+          .sort((change1, change2) => change2.rangeOffset - change1.rangeOffset)
+          .forEach((change) => {
+            this.yText.delete(change.rangeOffset, change.rangeLength);
+            this.yText.insert(change.rangeOffset, change.text);
+          });
+      }, this);
     });
 
     // initial push
@@ -94,7 +101,7 @@ export class DocumentBinding {
     }
 
     // initial load
-    this.mux(async () => {
+    this.remoteChangeQueue = this.remoteChangeQueue.then(async () => {
       const fullText = this.yText.toString();
       const oldText = this.doc.getText();
       if (fullText === oldText) { return; }
@@ -221,6 +228,10 @@ export class DocumentBinding {
   dispose() {
     if (this.yTextObserver) {
       this.yText.unobserve(this.yTextObserver);
+    }
+
+    if (this.applyRemoteChangeThrottled?.flush) {
+      this.applyRemoteChangeThrottled.flush();
     }
 
     if (this.awarenessChangeListener) {
