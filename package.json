@@ -91,12 +91,27 @@
       },
       {
         "command": "devcollab.redo",
-        "key": "ctrl+y",
-        "mac": "cmd+y",
+        "key": "ctrl+shift+z",
+        "mac": "cmd+shift+z",
         "when": "editorTextFocus"
       }
     ]
   },
+  "configuration": {
+      "title": "DevCollab",
+      "properties": {
+        "devcollab.serverUrl": {
+          "type": "string",
+          "default": "wss://collab.boat-sirapob.com",
+          "description": "WebSocket server URL for real-time collaboration"
+        },
+        "devcollab.httpServerUrl": {
+          "type": "string",
+          "default": "https://collab.boat-sirapob.com",
+          "description": "HTTP server URL for REST API calls"
+        }
+      }
+    },
   "scripts": {
     "vscode:prepublish": "yarn run compile",
     "compile": "tsc -p ./",

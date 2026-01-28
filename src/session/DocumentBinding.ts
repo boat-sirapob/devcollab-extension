@@ -2,9 +2,9 @@ import * as Y from "yjs";
 import * as vscode from "vscode";
 
 import { Awareness } from "y-protocols/awareness.js";
-import { CursorSelection } from "./models/CursorSelection.js";
-import { CustomDecorationType } from "./models/CustomDecoratorType.js";
-import { absoluteToRelative } from "./helpers/utilities.js";
+import { CursorSelection } from "../models/CursorSelection.js";
+import { CustomDecorationType } from "../models/CustomDecoratorType.js";
+import { absoluteToRelative } from "../helpers/Utilities.js";
 import throttle from "lodash.throttle";
 
 export class DocumentBinding {
@@ -38,6 +38,7 @@ export class DocumentBinding {
 
     this.yUndoManager = new Y.UndoManager(this.yText, { trackedOrigins: new Set([this]) });
 
+    
     this.applyRemoteChangeThrottled = throttle(async () => {
       this.remoteChangeQueue = this.remoteChangeQueue.then(async () => {
         const fullText = this.yText.toString();
