@@ -2,13 +2,14 @@ import * as Y from "yjs";
 import * as path from "path";
 import * as vscode from "vscode";
 
-import { absoluteToRelative, relativeToAbsolute } from "./helpers/utilities.js";
+import { absoluteToRelative, relativeToAbsolute } from "../helpers/Utilities.js";
 
 import { Awareness } from "y-protocols/awareness.js";
 import { DocumentBinding } from "./DocumentBinding.js";
 import { HocuspocusProvider } from '@hocuspocus/provider'
-import { SessionParticipant } from "./models/SessionParticipant.js";
-import { WorkspaceItem } from "./models/WorkspaceItem.js";
+import { Mapper } from "../helpers/Mapper.js";
+import { SessionParticipant } from "../models/SessionParticipant.js";
+import { WorkspaceItem } from "../models/WorkspaceItem.js";
 import { readdir } from "fs/promises";
 
 const usercolors = [
@@ -60,6 +61,15 @@ export class Session {
       this.connected = status === "connected";
     });
 
+    this.setupAwareness();
+    this.setupFileChangeHandling(); 
+  }
+
+  updateSidebar() {
+    this.onChange.fire();
+  }
+
+  setupAwareness() {
     this.awareness.on("change", ({added, updated, removed}: { added: Array<number>, updated: Array<number>, removed: Array<number> }) => {   
       const allStates = this.awareness.getStates();
   
@@ -67,28 +77,24 @@ export class Session {
         const state = allStates.get(id);
         const user = state?.user;
         if (!user) { return; }
+
         vscode.window.showInformationMessage(`User joined: ${user?.name ?? id}`);
-        this.participants.push({
-          clientId: id,
-          displayName: user.name,
-          color: user.color,
-          type: user.type,
-        })
-        this.onChange.fire();
+        
+        let sessionUser = Mapper.fromSessionParticipantDto(user, id);
+        this.participants.push(sessionUser);
+        this.updateSidebar();
       });
   
       removed.forEach(id => {
-        this.participants = this.participants.filter(
-          p => p.clientId !== id
-        );
-  
-        this.onChange.fire();
+        this.participants = this.participants.filter(p => p.clientId !== id);
+        this.updateSidebar();
       });
 
       if (updated.length > 0) {
-        this.onChange.fire();
+        this.updateSidebar();
       }
 
+      // todo: make this a message from the server
       // disconnect on session end
       let hostPresent = false;
       for (const [, state] of allStates) {
@@ -105,10 +111,80 @@ export class Session {
         this.onHostDisconnect?.();
       }
     });
+  }
 
-    // sync file creation and deletion
+  setupFileChangeHandling() {
     this.workspaceMap.observe(this.fileChangeHandler);
     this.setupFileWatcher();
+  }
+
+  setupFileWatcher() {
+    const pattern = new vscode.RelativePattern(this.rootPath, '**');
+    this.fileSystemWatcher = vscode.workspace.createFileSystemWatcher(pattern);
+
+    // handle file creation
+    this.fileSystemWatcher.onDidCreate(async (uri: vscode.Uri) => {
+      if (this.isApplyingRemoteChange) return;
+
+      const relPath = absoluteToRelative(uri.fsPath, this.rootPath);
+      const stat = await vscode.workspace.fs.stat(uri);
+
+      if (stat.type === vscode.FileType.File) {
+        if (!this.workspaceMap.has(relPath)) {
+          const yText = new Y.Text();
+          this.workspaceMap.set(relPath, yText);
+          await this.bindDocument(relPath, yText);
+        }
+      }
+    });
+
+    // handle file deletion
+    this.fileSystemWatcher.onDidDelete((uri: vscode.Uri) => {
+      if (this.isApplyingRemoteChange) return;
+
+      const relPath = absoluteToRelative(uri.fsPath, this.rootPath);
+      
+      if (this.workspaceMap.has(relPath)) {
+        this.workspaceMap.delete(relPath);
+        const binding = this.bindings.get(relPath);
+        if (binding) {
+          binding.dispose();
+        }
+        this.bindings.delete(relPath);
+      }
+    });
+  }
+
+  fileChangeHandler = async (event: Y.YMapEvent<Y.Text>) => {    
+    this.isApplyingRemoteChange = true;
+    try {
+      for (const key of event.keysChanged) {
+        const yText = this.workspaceMap.get(key);
+        
+        if (yText) {
+          // sync file creation
+          if (!this.bindings.has(key)) {
+            await this.createFile(key);
+            await this.bindDocument(key, yText);
+          }
+        } else {
+          // sync file deletion
+          const fileUri = vscode.Uri.file(relativeToAbsolute(key, this.rootPath));
+          try {
+            await vscode.workspace.fs.delete(fileUri);
+            const binding = this.bindings.get(key);
+            if (binding) {
+              binding.dispose();
+            }
+            this.bindings.delete(key);
+          } catch (e) {
+            console.error(`Failed to delete file ${key}:`, e);
+          }
+        }
+      }
+    } finally {
+      this.isApplyingRemoteChange = false;
+    }
   }
 
   static generateRoomCode(length = 6) {
@@ -154,43 +230,6 @@ export class Session {
     this.bindings.set(relPath, binding);
   }
 
-  setupFileWatcher() {
-    const pattern = new vscode.RelativePattern(this.rootPath, '**');
-    this.fileSystemWatcher = vscode.workspace.createFileSystemWatcher(pattern);
-
-    // handle file creation
-    this.fileSystemWatcher.onDidCreate(async (uri: vscode.Uri) => {
-      if (this.isApplyingRemoteChange) return;
-
-      const relPath = absoluteToRelative(uri.fsPath, this.rootPath);
-      const stat = await vscode.workspace.fs.stat(uri);
-
-      if (stat.type === vscode.FileType.File) {
-        if (!this.workspaceMap.has(relPath)) {
-          const yText = new Y.Text();
-          this.workspaceMap.set(relPath, yText);
-          await this.bindDocument(relPath, yText);
-        }
-      }
-    });
-
-    // handle file deletion
-    this.fileSystemWatcher.onDidDelete((uri: vscode.Uri) => {
-      if (this.isApplyingRemoteChange) return;
-
-      const relPath = absoluteToRelative(uri.fsPath, this.rootPath);
-      
-      if (this.workspaceMap.has(relPath)) {
-        this.workspaceMap.delete(relPath);
-        const binding = this.bindings.get(relPath);
-        if (binding) {
-          binding.dispose();
-        }
-        this.bindings.delete(relPath);
-      }
-    });
-  }
-
   async createFile(
     fileRelPath: string
   ): Promise<vscode.TextDocument> {
@@ -212,36 +251,19 @@ export class Session {
     this.participants.push(participant);
   }
 
-  fileChangeHandler = async (event: Y.YMapEvent<Y.Text>) => {    
-    this.isApplyingRemoteChange = true;
-    try {
-      for (const key of event.keysChanged) {
-        const yText = this.workspaceMap.get(key);
-        
-        if (yText) {
-          // sync file creation
-          if (!this.bindings.has(key)) {
-            await this.createFile(key);
-            await this.bindDocument(key, yText);
-          }
-        } else {
-          // sync file deletion
-          const fileUri = vscode.Uri.file(relativeToAbsolute(key, this.rootPath));
-          try {
-            await vscode.workspace.fs.delete(fileUri);
-            const binding = this.bindings.get(key);
-            if (binding) {
-              binding.dispose();
-            }
-            this.bindings.delete(key);
-          } catch (e) {
-            console.error(`Failed to delete file ${key}:`, e);
-          }
-        }
-      }
-    } finally {
-      this.isApplyingRemoteChange = false;
+  initializeUser(username: string, userType: "Host" | "Guest") {    
+    let userColor = usercolors[Math.floor(Math.random() * usercolors.length)];
+    let user: SessionParticipant = {
+      clientId: this.awareness.clientID,
+      displayName: username,
+      color: userColor,
+      type: userType,
     }
+
+    this.participants.push(user);
+    
+    let awarenessUser = Mapper.toSessionParticipantDto(user);
+    this.awareness.setLocalStateField("user", awarenessUser);
   }
 
   static async hostSession(rootPath: string, username: string, sidebarUpdateCallback: vscode.EventEmitter<void>, singleFilePath?: string): Promise<Session> {
@@ -249,22 +271,7 @@ export class Session {
     const roomCode = Session.generateRoomCode();
 
     let session = new Session(roomCode, rootPath, sidebarUpdateCallback);
-
-    let userColor = usercolors[Math.floor(Math.random() * usercolors.length)];
-    let user: SessionParticipant = {
-      clientId: session.awareness.clientID,
-      displayName: username,
-      color: userColor,
-      type: "Host",
-    }
-
-    session.participants.push(user);
-    
-    session.awareness.setLocalStateField("user", {
-      name: user.displayName,
-      color: user.color,
-      type: user.type,
-    });
+    session.initializeUser(username, "Host");
 
     let files;
 
@@ -286,22 +293,7 @@ export class Session {
 
   static async joinSession(roomCode: string, rootPath: string, username: string, sidebarUpdateCallback: vscode.EventEmitter<void>): Promise<Session> {
     let session = new Session(roomCode, rootPath, sidebarUpdateCallback);
-
-    let userColor = usercolors[Math.floor(Math.random() * usercolors.length)];
-    let user: SessionParticipant = {
-      clientId: session.awareness.clientID,
-      displayName: username,
-      color: userColor,
-      type: "Guest",
-    }
-
-    session.participants.push(user);
-    
-    session.awareness.setLocalStateField("user", {
-      name: user.displayName,
-      color: user.color,
-      type: user.type,
-    });
+    session.initializeUser(username, "Guest");
 
     return session;
   }

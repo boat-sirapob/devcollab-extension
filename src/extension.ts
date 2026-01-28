@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 
 import { ExtensionState } from "./state.js";
-import { SessionInfoSidebarProvider } from "./sidebar.js";
+import { SessionInfoSidebarProvider } from "./ui/sidebar/SessionInfoSidebarProvider.js";
 
 const state = new ExtensionState();
 
