@@ -1,3 +1,5 @@
+import * as fs from "fs";
+import * as os from "os";
 import * as path from "path";
 import * as vscode from "vscode";
 
@@ -6,18 +8,28 @@ import { absoluteToRelative, getWorkspaceType, isDirectoryEmpty } from "./helper
 import { Session } from "./session/Session.js";
 import { WorkspaceType } from "./enums/WorkspaceType.js";
 
+interface PendingSessionState {
+  roomCode: string;
+  username: string;
+  tempDir: string;
+  fromJoin: boolean;
+}
+
 export class ExtensionState {
   private _onDidChange = new vscode.EventEmitter<void>();
   readonly onDidChange = this._onDidChange.event;
 
   loading: boolean;
   session: Session | null;
+  tempDir: string | null;
+  context?: vscode.ExtensionContext;
   
   disposables: vscode.Disposable[];
 
   constructor() {
     this.loading = false;
     this.session = null;
+    this.tempDir = null;
     this.disposables = [];
   }
 
@@ -26,6 +38,105 @@ export class ExtensionState {
       d.dispose();
     }
     this.disposables = [];
+  }
+
+  setContext(context: vscode.ExtensionContext) {
+    this.context = context;
+    // Clean up any old temp directories from previous sessions
+    this.cleanupOldTempDirs();
+  }
+
+  private cleanupOldTempDirs() {
+    try {
+      const tempDirBase = path.join(os.tmpdir(), "devcollab-sessions");
+      if (!fs.existsSync(tempDirBase)) {
+        return;
+      }
+
+      const entries = fs.readdirSync(tempDirBase, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isDirectory()) {
+          const dirPath = path.join(tempDirBase, entry.name);
+          if (dirPath === this.tempDir) {
+            continue;
+          }
+
+          try {
+            fs.rmSync(dirPath, { recursive: true, force: true });
+          } catch (err) {
+            // ignore - directory might still be in use
+          }
+        }
+      }
+    } catch (err) {
+      // ignore
+    }
+  }
+
+  async restorePendingSession() {
+    if (!this.context) { return; }
+
+    let pendingSession = this.context.globalState.get<PendingSessionState>("pendingSession");
+
+    if (!pendingSession) { return; }
+
+    if (!pendingSession.fromJoin) {
+      // todo: dialogue choose whether to rejoin if not from join session
+    }
+
+    pendingSession.fromJoin = false;
+    await this.context.globalState.update("pendingSession", pendingSession);
+
+    this.setLoading(true);
+    this.tempDir = pendingSession.tempDir;
+
+    try {
+      this.session = await Session.joinSession(
+        pendingSession.roomCode,
+        pendingSession.tempDir,
+        pendingSession.username,
+        this._onDidChange
+      );
+
+      this.session.onHostDisconnect = () => {
+        this.disconnectSession();
+      };
+
+      await vscode.window.withProgress(
+        {
+          location: vscode.ProgressLocation.Notification,
+          title: "Connecting to collaboration server",
+          cancellable: false,
+        },
+        async () => {
+          try {
+            await this.session!.waitForConnection(5000);
+            const hostFound = await this.session!.waitForHost(2000);
+            if (!hostFound) {
+              vscode.window.showErrorMessage(
+                `Unable to reconnect to session ${pendingSession.roomCode}`
+              );
+              this.closeLocalSession();
+              return;
+            }
+
+            vscode.window.showInformationMessage(
+              "Connected to collaboration session"
+            );
+          } catch (err) {
+            vscode.window.showErrorMessage(
+              "Unable to reconnect to collaboration server"
+            );
+            this.closeLocalSession();
+          } finally {
+            this.setLoading(false);
+          }
+        }
+      );
+    } catch (err) {
+      console.error("Failed to restore session:", err);
+      this.closeLocalSession();
+    }
   }
 
   setLoading(val: boolean) {
@@ -50,10 +161,11 @@ export class ExtensionState {
     });
   }
 
-  closeLocalSession() {
+  async closeLocalSession() {
     this.session?.provider.disconnect();
     this.dispose();
     this.session = null;
+    await this.context?.globalState.update("pendingSession", undefined);
     this._onDidChange.fire();
   }
 
@@ -156,19 +268,6 @@ export class ExtensionState {
 
     this.setLoading(true);
 
-    let folders = vscode.workspace.workspaceFolders;
-    let editor = vscode.window.activeTextEditor;
-    let workspaceType = getWorkspaceType();
-
-    // todo: open a temporary folder
-    if (workspaceType !== WorkspaceType.SingleRootFolder || !(await isDirectoryEmpty(folders![0].uri))) {
-      vscode.window.showInformationMessage("Open an empty folder to join a session.")
-      this.setLoading(false);
-      return;
-    }
-
-    const targetDir = folders![0].uri;
-
     const roomCode = await vscode.window.showInputBox({
       prompt: "Enter the room code for the collaboration session you want to join",
       placeHolder: "Room Code"
@@ -188,40 +287,43 @@ export class ExtensionState {
       return;
     }
 
-    this.session = await Session.joinSession(roomCode, targetDir.fsPath, username, this._onDidChange);
+    const tempDirBase = path.join(os.tmpdir(), "devcollab-sessions");
+    if (!fs.existsSync(tempDirBase)) {
+      fs.mkdirSync(tempDirBase, { recursive: true });
+    }
+    
+    this.tempDir = fs.mkdtempSync(path.join(tempDirBase, `session-`));
+    const targetUri = vscode.Uri.file(this.tempDir);
 
-    this.session.onHostDisconnect = () => {
-      this.disconnectSession();
-    };
+    // extension state resets on opening a folder
+    // this retains the state to allow connecting to the session in the temp folder
+    if (this.context) {
+      const state: PendingSessionState = {
+        roomCode: roomCode,
+        username: username,
+        tempDir: this.tempDir,
+        fromJoin: true
+      };
 
-    await vscode.window.withProgress(
-      {
-        location: vscode.ProgressLocation.Notification,
-        title: "Connecting to collaboration server",
-        cancellable: false,
-      },
-      async () => {
-        try {
-          await this.session!.waitForConnection(5000);
-          const hostFound = await this.session!.waitForHost(2000);
-          if (!hostFound) {
-            vscode.window.showErrorMessage(`A room with the code ${this.session?.roomCode} could not be found.`);
-            this.closeLocalSession();
-            return;
-          }
+      await this.context.globalState.update("pendingSession", state);
+    }
 
-          vscode.window.showInformationMessage("Connected to collaboration server");
-        } catch {
-          vscode.window.showErrorMessage("Unable to connect to collaboration server");
-          this.closeLocalSession();
-        } finally {
-          this.setLoading(false);
-        }
-      }
+    await vscode.commands.executeCommand(
+      "vscode.openFolder",
+      targetUri,
+      false // don't open in new window
     );
   }
 
   endSession() {
+    if (this.session?.participantType === "Host") {
+      this.closeSession();
+    } else {
+      this.disconnectSession();
+    }
+  }
+
+  closeSession() {
     vscode.window.showInformationMessage("The collaboration session has been ended.");
     this.closeLocalSession();
   }
@@ -229,6 +331,7 @@ export class ExtensionState {
   disconnectSession() {
     vscode.window.showInformationMessage("You have disconnected from the collaboration session.");
     this.closeLocalSession();
+    vscode.commands.executeCommand("workbench.action.closeFolder");
   }
 
   handleUndo() {

@@ -8,6 +8,8 @@ const state = new ExtensionState();
 export function activate(context: vscode.ExtensionContext) {
   vscode.commands.executeCommand('setContext', 'devcollab.isInSession', false);
 
+  state.setContext(context);
+
   state.onDidChange(() => {
     vscode.commands.executeCommand('setContext', 'devcollab.isInSession', state.session !== null);
   }, context.subscriptions);
@@ -15,6 +17,10 @@ export function activate(context: vscode.ExtensionContext) {
   const sidebarProvider = new SessionInfoSidebarProvider(state);
   vscode.window.createTreeView("devcollab", {
     treeDataProvider: sidebarProvider
+  });
+
+  state.restorePendingSession().catch(err => {
+    console.error("Failed to restore pending session:", err);
   });
 
   const commands = [
