@@ -9,6 +9,7 @@ import { DocumentBinding } from "./DocumentBinding.js";
 import { HocuspocusProvider } from '@hocuspocus/provider'
 import { Mapper } from "../helpers/Mapper.js";
 import { SessionParticipant } from "../models/SessionParticipant.js";
+import { SessionParticipantDto } from "../dto/SessionParticipantDto.js";
 import { WorkspaceItem } from "../models/WorkspaceItem.js";
 import { readdir } from "fs/promises";
 
@@ -75,10 +76,10 @@ export class Session {
   
       added.forEach(id => {
         const state = allStates.get(id);
-        const user = state?.user;
+        const user: SessionParticipantDto = state?.user;
         if (!user) { return; }
 
-        vscode.window.showInformationMessage(`User joined: ${user?.name ?? id}`);
+        vscode.window.showInformationMessage(`User joined: ${user?.displayName ?? id}`);
         
         let sessionUser = Mapper.fromSessionParticipantDto(user, id);
         this.participants.push(sessionUser);
