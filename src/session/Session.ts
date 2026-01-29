@@ -8,6 +8,7 @@ import { Awareness } from "y-protocols/awareness.js";
 import { DocumentBinding } from "./DocumentBinding.js";
 import { HocuspocusProvider } from '@hocuspocus/provider'
 import { Mapper } from "../helpers/Mapper.js";
+import { ParticipantType } from "../enums/ParticipantType.js";
 import { SessionParticipant } from "../models/SessionParticipant.js";
 import { SessionParticipantDto } from "../dto/SessionParticipantDto.js";
 import { WorkspaceItem } from "../models/WorkspaceItem.js";
@@ -34,13 +35,14 @@ export class Session {
   rootPath: string;
   onChange: vscode.EventEmitter<void>
   connected: boolean;
+  participantType: ParticipantType;
   onHostDisconnect?: () => void;
 
   bindings: Map<string, DocumentBinding>;
   fileSystemWatcher?: vscode.FileSystemWatcher;
   isApplyingRemoteChange: boolean;
 
-  constructor(roomCode: string, rootPath: string, onChange: vscode.EventEmitter<void>) {
+  constructor(roomCode: string, rootPath: string, onChange: vscode.EventEmitter<void>, type: ParticipantType) {
     this.roomCode = roomCode;
     this.participants = [];
     this.doc = new Y.Doc();
@@ -54,6 +56,7 @@ export class Session {
     this.rootPath = rootPath;
     this.onChange = onChange;
     this.connected = false;
+    this.participantType = type;
     this.isApplyingRemoteChange = false;
 
     this.bindings = new Map();
@@ -252,7 +255,7 @@ export class Session {
     this.participants.push(participant);
   }
 
-  initializeUser(username: string, userType: "Host" | "Guest") {    
+  initializeUser(username: string, userType: ParticipantType) {    
     let userColor = usercolors[Math.floor(Math.random() * usercolors.length)];
     let user: SessionParticipant = {
       clientId: this.awareness.clientID,
@@ -271,7 +274,7 @@ export class Session {
     
     const roomCode = Session.generateRoomCode();
 
-    let session = new Session(roomCode, rootPath, sidebarUpdateCallback);
+    let session = new Session(roomCode, rootPath, sidebarUpdateCallback, "Host");
     session.initializeUser(username, "Host");
 
     let files;
@@ -293,7 +296,7 @@ export class Session {
   }
 
   static async joinSession(roomCode: string, rootPath: string, username: string, sidebarUpdateCallback: vscode.EventEmitter<void>): Promise<Session> {
-    let session = new Session(roomCode, rootPath, sidebarUpdateCallback);
+    let session = new Session(roomCode, rootPath, sidebarUpdateCallback, "Guest");
     session.initializeUser(username, "Guest");
 
     return session;

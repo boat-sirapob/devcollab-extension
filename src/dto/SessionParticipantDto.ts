@@ -1,6 +1,7 @@
+import { ParticipantType } from "../enums/ParticipantType.js";
 
 export interface SessionParticipantDto {
   displayName: string;
   color: string;
-  type: "Host" | "Guest";
+  type: ParticipantType;
 }

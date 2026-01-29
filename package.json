@@ -15,7 +15,9 @@
     "url": "git+https://github.com/boat-sirapob/devcollab-extension.git"
   },
   "type": "module",
-  "activationEvents": [],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "viewsContainers": {
