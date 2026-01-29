@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 
 import { ExtensionState } from "./state.js";
 import { SessionInfoSidebarProvider } from "./ui/sidebar/SessionInfoSidebarProvider.js";
+import { StatusBarProvider } from "./ui/status-bar/StatusBarProvider.js";
 
 const state = new ExtensionState();
 
@@ -9,6 +10,7 @@ export function activate(context: vscode.ExtensionContext) {
   initializeState(context);
   registerSidebar(context);
   registerCommands(context);
+  registerStatusBar(context);
 }
 
 export function initializeState(context: vscode.ExtensionContext) {
@@ -73,6 +75,11 @@ export function registerCommands(context: vscode.ExtensionContext) {
 
     context.subscriptions.push(disposable);
   });
+}
+
+export function registerStatusBar(context: vscode.ExtensionContext) {
+  const statusBarProvider = new StatusBarProvider(state);
+  context.subscriptions.push(statusBarProvider.getStatusBarItem());
 }
 
 export function deactivate() {
