@@ -96,8 +96,8 @@ export class ExtensionState {
         this._onDidChange
       );
 
-      this.session.onHostDisconnect = () => {
-        this.disconnectSession();
+      this.session.onHostDisconnect = async () => {
+        await this.disconnectSession();
       };
 
       await vscode.window.withProgress(
@@ -114,7 +114,7 @@ export class ExtensionState {
               vscode.window.showErrorMessage(
                 `Unable to reconnect to session ${pendingSession.roomCode}`
               );
-              this.closeLocalSession();
+              await this.closeLocalSession();
               return;
             }
 
@@ -125,7 +125,7 @@ export class ExtensionState {
             vscode.window.showErrorMessage(
               "Unable to reconnect to collaboration server"
             );
-            this.closeLocalSession();
+            await this.closeLocalSession();
           } finally {
             this.setLoading(false);
           }
@@ -133,7 +133,7 @@ export class ExtensionState {
       );
     } catch (err) {
       console.error("Failed to restore session:", err);
-      this.closeLocalSession();
+      await this.closeLocalSession();
       this.setLoading(false);
     }
   }
@@ -237,7 +237,7 @@ export class ExtensionState {
           await this.session!.waitForConnection(5000);
         } catch {
           vscode.window.showErrorMessage("Unable to connect to collaboration server");
-          this.closeLocalSession();
+          await this.closeLocalSession();
         } finally {
           this.setLoading(false);
         }
@@ -314,27 +314,27 @@ export class ExtensionState {
     );
   }
 
-  endSession() {
+  async endSession() {
     if (this.session === null) {
       vscode.window.showErrorMessage("You are not in a collaboration session.");
       return;
     }
     if (this.session.participantType === "Host") {
-      this.closeSession();
+      await this.closeSession();
     } else {
-      this.disconnectSession();
+      await this.disconnectSession();
     }
   }
 
-  closeSession() {
+  async closeSession() {
     vscode.window.showInformationMessage("The collaboration session has been ended.");
-    this.closeLocalSession();
+    await this.closeLocalSession();
   }
 
-  disconnectSession() {
+  async disconnectSession() {
     vscode.window.showInformationMessage("You have disconnected from the collaboration session.");
-    this.closeLocalSession();
-    vscode.commands.executeCommand("workbench.action.closeFolder");
+    await this.closeLocalSession();
+    await vscode.commands.executeCommand("workbench.action.closeFolder");
   }
 
   handleUndo() {
