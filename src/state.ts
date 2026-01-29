@@ -42,11 +42,9 @@ export class ExtensionState {
 
   setContext(context: vscode.ExtensionContext) {
     this.context = context;
-    // Clean up any old temp directories from previous sessions
-    this.cleanupOldTempDirs();
   }
 
-  private cleanupOldTempDirs() {
+  cleanupOldTempDirs() {
     try {
       const tempDirBase = path.join(os.tmpdir(), "devcollab-sessions");
       if (!fs.existsSync(tempDirBase)) {
@@ -136,6 +134,7 @@ export class ExtensionState {
     } catch (err) {
       console.error("Failed to restore session:", err);
       this.closeLocalSession();
+      this.setLoading(false);
     }
   }
 
@@ -163,9 +162,9 @@ export class ExtensionState {
 
   async closeLocalSession() {
     this.session?.provider.disconnect();
+    await this.context?.globalState.update("pendingSession", undefined);
     this.dispose();
     this.session = null;
-    await this.context?.globalState.update("pendingSession", undefined);
     this._onDidChange.fire();
   }
 
@@ -316,7 +315,11 @@ export class ExtensionState {
   }
 
   endSession() {
-    if (this.session?.participantType === "Host") {
+    if (this.session === null) {
+      vscode.window.showErrorMessage("You are not in a collaboration session.");
+      return;
+    }
+    if (this.session.participantType === "Host") {
       this.closeSession();
     } else {
       this.disconnectSession();

@@ -6,23 +6,37 @@ import { SessionInfoSidebarProvider } from "./ui/sidebar/SessionInfoSidebarProvi
 const state = new ExtensionState();
 
 export function activate(context: vscode.ExtensionContext) {
-  vscode.commands.executeCommand('setContext', 'devcollab.isInSession', false);
+  initializeState(context);
+  registerSidebar(context);
+  registerCommands(context);
+}
 
+export function initializeState(context: vscode.ExtensionContext) {
   state.setContext(context);
 
-  state.onDidChange(() => {
-    vscode.commands.executeCommand('setContext', 'devcollab.isInSession', state.session !== null);
-  }, context.subscriptions);
+  state.restorePendingSession()
+    .then(() => {
+      state.cleanupOldTempDirs();
+    })
+    .catch(err => {
+      console.error("Failed to restore pending session:", err);
+    });
+  
+  vscode.commands.executeCommand("setContext", "devcollab.isInSession", false);
 
+  state.onDidChange(() => {
+    vscode.commands.executeCommand("setContext", "devcollab.isInSession", state.session !== null);
+  }, context.subscriptions);
+}
+
+export function registerSidebar(context: vscode.ExtensionContext) {
   const sidebarProvider = new SessionInfoSidebarProvider(state);
   vscode.window.createTreeView("devcollab", {
     treeDataProvider: sidebarProvider
   });
+}
 
-  state.restorePendingSession().catch(err => {
-    console.error("Failed to restore pending session:", err);
-  });
-
+export function registerCommands(context: vscode.ExtensionContext) {
   const commands = [
     {
       command: "devcollab.test",
