@@ -1,12 +1,18 @@
+import "reflect-metadata";
+
 import * as vscode from "vscode";
 
 import { ExtensionState } from "./state.js";
 import { SessionInfoSidebarProvider } from "./ui/sidebar/SessionInfoSidebarProvider.js";
 import { StatusBarProvider } from "./ui/status-bar/StatusBarProvider.js";
+import { registerServices } from "./di/Container.js";
+import container from "./di/Container.js";
 
-const state = new ExtensionState();
+let state: ExtensionState;
 
 export function activate(context: vscode.ExtensionContext) {
+  registerServices();
+  state = container.resolve(ExtensionState);
   initializeState(context);
   registerSidebar(context);
   registerCommands(context);
@@ -68,6 +74,10 @@ export function registerCommands(context: vscode.ExtensionContext) {
       command: "devcollab.copyRoomCode",
       callback: state.copyRoomCode,
     },
+    {
+      command: "devcollab.toggleFollow",
+      callback: state.toggleFollow,
+    }
   ];
 
   commands.forEach((c) => {

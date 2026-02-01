@@ -142,6 +142,8 @@
     "lodash.throttle": "^4.1.1",
     "peer": "^1.0.2",
     "peerjs": "^1.5.5",
+    "reflect-metadata": "^0.2.2",
+    "tsyringe": "^4.10.0",
     "y-websocket": "^3.0.0",
     "yjs": "^13.6.27"
   }
