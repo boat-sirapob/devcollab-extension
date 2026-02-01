@@ -8,7 +8,6 @@ export interface ISessionService {
     tempDir: string | null;
     onDidChange: vscode.Event<void>;
 
-    setContext(context: vscode.ExtensionContext): void;
     cleanupOldTempDirs(): void;
     restorePendingSession(): Promise<void>;
     copyRoomCode(roomCode?: string): Promise<void>;
