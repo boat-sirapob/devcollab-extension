@@ -9,7 +9,6 @@ import { ISessionService } from "./interfaces/ISessionService.js";
 export class ExtensionState {
     private _onDidChange = new vscode.EventEmitter<void>();
     readonly onDidChange = this._onDidChange.event;
-    context?: vscode.ExtensionContext;
 
     disposables: vscode.Disposable[];
 
@@ -31,11 +30,6 @@ export class ExtensionState {
         this.disposables = [];
 
         this.sessionService.dispose();
-    }
-
-    setContext(context: vscode.ExtensionContext) {
-        this.context = context;
-        this.sessionService.setContext(context);
     }
 
     get session() {

@@ -8,14 +8,8 @@ import { absoluteToRelative, getWorkspaceType } from "../helpers/Utilities.js";
 import { ISessionService } from "../interfaces/ISessionService.js";
 import { Session } from "../session/Session.js";
 import { WorkspaceType } from "../enums/WorkspaceType.js";
-import { injectable } from "tsyringe";
-
-interface PendingSessionState {
-    roomCode: string;
-    username: string;
-    tempDir: string;
-    fromJoin: boolean;
-}
+import { injectable, inject } from "tsyringe";
+import { IPersistenceService } from "../interfaces/IPersistenceService.js";
 
 @injectable()
 export class SessionService implements ISessionService {
@@ -25,9 +19,12 @@ export class SessionService implements ISessionService {
     loading: boolean;
     session: Session | null;
     tempDir: string | null;
-    context?: vscode.ExtensionContext;
 
-    constructor() {
+    constructor(
+        @inject("ExtensionContext") private context: vscode.ExtensionContext,
+        @inject("IPersistenceService")
+        private persistenceService: IPersistenceService
+    ) {
         this.loading = false;
         this.session = null;
         this.tempDir = null;
@@ -37,10 +34,6 @@ export class SessionService implements ISessionService {
         this.session?.dispose();
         this.session = null;
         this._onDidChange.fire();
-    }
-
-    setContext(context: vscode.ExtensionContext) {
-        this.context = context;
     }
 
     getSession(): Session | null {
@@ -77,12 +70,7 @@ export class SessionService implements ISessionService {
     }
 
     async restorePendingSession() {
-        if (!this.context) {
-            return;
-        }
-
-        let pendingSession =
-            this.context.globalState.get<PendingSessionState>("pendingSession");
+        let pendingSession = this.persistenceService.getPendingSessionState();
 
         if (!pendingSession) {
             return;
@@ -93,7 +81,7 @@ export class SessionService implements ISessionService {
         }
 
         pendingSession.fromJoin = false;
-        await this.context.globalState.update("pendingSession", pendingSession);
+        await this.persistenceService.setPendingSessionState(pendingSession);
 
         this.setLoading(true);
         this.tempDir = pendingSession.tempDir;
@@ -170,6 +158,7 @@ export class SessionService implements ISessionService {
     private async inputUsername(): Promise<string | undefined> {
         return await vscode.window.showInputBox({
             title: "Display name",
+            value: this.persistenceService.getSavedUsername() ?? "",
             placeHolder:
                 "Enter your display name for this session (empty to cancel)",
         });
@@ -180,7 +169,8 @@ export class SessionService implements ISessionService {
             this.session.provider.disconnect();
             this.session.dispose();
         }
-        await this.context?.globalState.update("pendingSession", undefined);
+
+        await this.persistenceService.setPendingSessionState(undefined);
         this.session = null;
         this._onDidChange.fire();
     }
@@ -246,6 +236,7 @@ export class SessionService implements ISessionService {
             this.setLoading(false);
             return;
         }
+        await this.persistenceService.setSavedUsername(username);
 
         this.session = await Session.hostSession(
             targetRootPath!,
@@ -320,6 +311,7 @@ export class SessionService implements ISessionService {
             this.setLoading(false);
             return;
         }
+        await this.persistenceService.setSavedUsername(username);
 
         const tempDirBase = path.join(os.tmpdir(), "devcollab-sessions");
         if (!fs.existsSync(tempDirBase)) {
@@ -332,14 +324,12 @@ export class SessionService implements ISessionService {
         // extension state resets on opening a folder
         // this retains the state to allow connecting to the session in the temp folder
         if (this.context) {
-            const state: PendingSessionState = {
+            await this.persistenceService.setPendingSessionState({
                 roomCode: roomCode,
                 username: username,
                 tempDir: this.tempDir,
                 fromJoin: true,
-            };
-
-            await this.context.globalState.update("pendingSession", state);
+            });
         }
 
         await vscode.commands.executeCommand(

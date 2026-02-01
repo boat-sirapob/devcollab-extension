@@ -2,17 +2,18 @@ import "reflect-metadata";
 
 import * as vscode from "vscode";
 
+import container, { registerExtensionContext } from "./di/Container.js";
+
 import { ExtensionState } from "./state.js";
 import { SessionInfoSidebarProvider } from "./ui/sidebar/SessionInfoSidebarProvider.js";
 import { StatusBarProvider } from "./ui/status-bar/StatusBarProvider.js";
-import container from "./di/Container.js";
 import { registerServices } from "./di/Container.js";
 
 let state: ExtensionState;
 
 export function activate(context: vscode.ExtensionContext) {
     registerServices();
-    state = container.resolve(ExtensionState);
+    registerExtensionContext(context);
     initializeState(context);
     registerSidebar(context);
     registerCommands(context);
@@ -20,8 +21,7 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 export function initializeState(context: vscode.ExtensionContext) {
-    state.setContext(context);
-
+    state = container.resolve(ExtensionState);
     state
         .restorePendingSession()
         .then(() => {
