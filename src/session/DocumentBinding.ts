@@ -326,7 +326,6 @@ export class DocumentBinding {
                 }
 
                 const state = allStates.get(id) as AwarenessState;
-                console.log(state);
                 if (state?.lastSavedFile?.path === this.relUri) {
                     if (state.lastSavedFile.timestamp != this.lastSavedTime) {
                         FileSystemUtilities.saveFile(
