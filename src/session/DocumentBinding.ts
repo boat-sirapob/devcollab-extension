@@ -320,7 +320,7 @@ export class DocumentBinding {
             removed: Array<number>;
         }) => {
             const allStates = this.awareness.getStates();
-            updated.forEach((id) => {
+            updated.forEach(async (id) => {
                 if (id === this.awareness.clientID) {
                     return;
                 }
@@ -328,7 +328,7 @@ export class DocumentBinding {
                 const state = allStates.get(id) as AwarenessState;
                 if (state?.lastSavedFile?.path === this.relUri) {
                     if (state.lastSavedFile.timestamp != this.lastSavedTime) {
-                        FileSystemUtilities.saveFile(
+                        await FileSystemUtilities.saveFile(
                             vscode.Uri.file(
                                 relativeToAbsolute(
                                     state.lastSavedFile.path,
