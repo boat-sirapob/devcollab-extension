@@ -1,12 +1,18 @@
 import * as Y from "yjs";
 import * as vscode from "vscode";
 
+import {
+    absoluteToRelative,
+    relativeToAbsolute,
+} from "../helpers/Utilities.js";
+
 import { Awareness } from "y-protocols/awareness.js";
 import { AwarenessState } from "../models/AwarenessState.js";
 import { CursorAwarenessState } from "../models/CursorAwarenessState.js";
 import { CursorSelection } from "../models/CursorSelection.js";
 import { CustomDecorationType } from "../models/CustomDecoratorType.js";
-import { absoluteToRelative } from "../helpers/Utilities.js";
+import { FileSavedAwarenessState } from "../models/FileSavedAwarenessState.js";
+import { FileSystemUtilities } from "../helpers/FileSystemUtilities.js";
 import throttle from "lodash.throttle";
 
 export class DocumentBinding {
@@ -21,6 +27,7 @@ export class DocumentBinding {
     yUndoManager?: Y.UndoManager;
 
     decorationTypeMap = new Map<number, CustomDecorationType>();
+    lastSavedTime: number = 0;
 
     // for cleanup
     private yTextObserver?: (
@@ -33,12 +40,18 @@ export class DocumentBinding {
         flush?: () => void;
     };
     private textDocumentChangeListener?: vscode.Disposable;
-    private awarenessChangeListener?: (event: {
+    private decorationChangeHandler?: (event: {
         added: Array<number>;
         updated: Array<number>;
         removed: Array<number>;
     }) => void;
     private textEditorSelectionListener?: vscode.Disposable;
+    private textDocumentSaveListener?: vscode.Disposable;
+    private remoteFileSaveHandler?: (event: {
+        added: Array<number>;
+        updated: Array<number>;
+        removed: Array<number>;
+    }) => void;
 
     constructor(
         yText: Y.Text,
@@ -166,7 +179,7 @@ export class DocumentBinding {
         });
 
         // todo: make name tag disappear after some time / appear on hover?
-        this.awarenessChangeListener = ({
+        this.decorationChangeHandler = ({
             added,
             updated,
             removed,
@@ -295,7 +308,57 @@ export class DocumentBinding {
             }
         };
 
-        this.awareness.on("change", this.awarenessChangeListener);
+        this.awareness.on("change", this.decorationChangeHandler);
+
+        this.remoteFileSaveHandler = ({
+            added,
+            updated,
+            removed,
+        }: {
+            added: Array<number>;
+            updated: Array<number>;
+            removed: Array<number>;
+        }) => {
+            const allStates = this.awareness.getStates();
+            updated.forEach(async (id) => {
+                if (id === this.awareness.clientID) {
+                    return;
+                }
+
+                const state = allStates.get(id) as AwarenessState;
+                if (state?.lastSavedFile?.path === this.relUri) {
+                    if (state.lastSavedFile.timestamp != this.lastSavedTime) {
+                        await FileSystemUtilities.saveFile(
+                            vscode.Uri.file(
+                                relativeToAbsolute(
+                                    state.lastSavedFile.path,
+                                    this.rootPath
+                                )
+                            )
+                        );
+                        this.lastSavedTime = state.lastSavedFile.timestamp;
+                    }
+                }
+            });
+        };
+
+        this.awareness.on("change", this.remoteFileSaveHandler);
+
+        // listen for file saves
+        this.textDocumentSaveListener = vscode.workspace.onDidSaveTextDocument(
+            (doc: vscode.TextDocument) => {
+                if (doc.uri === this.doc.uri) {
+                    const savedState: FileSavedAwarenessState = {
+                        path: this.relUri,
+                        timestamp: Date.now(),
+                    };
+                    this.awareness.setLocalStateField(
+                        "lastSavedFile",
+                        savedState
+                    );
+                }
+            }
+        );
 
         // push local selection changes
         this.textEditorSelectionListener =
@@ -342,8 +405,11 @@ export class DocumentBinding {
             this.applyRemoteChangeThrottled.flush();
         }
 
-        if (this.awarenessChangeListener) {
-            this.awareness.off("change", this.awarenessChangeListener);
+        if (this.decorationChangeHandler) {
+            this.awareness.off("change", this.decorationChangeHandler);
+        }
+        if (this.remoteFileSaveHandler) {
+            this.awareness.off("change", this.remoteFileSaveHandler);
         }
 
         if (this.textDocumentChangeListener) {
@@ -351,6 +417,9 @@ export class DocumentBinding {
         }
         if (this.textEditorSelectionListener) {
             this.textEditorSelectionListener.dispose();
+        }
+        if (this.textDocumentSaveListener) {
+            this.textDocumentSaveListener.dispose();
         }
 
         if (this.yUndoManager) {

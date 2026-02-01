@@ -9,6 +9,7 @@ import {
 
 import { Awareness } from "y-protocols/awareness.js";
 import { DocumentBinding } from "./DocumentBinding.js";
+import { FileSystemUtilities } from "../helpers/FileSystemUtilities.js";
 import { HocuspocusProvider } from "@hocuspocus/provider";
 import { Mapper } from "../helpers/Mapper.js";
 import { ParticipantType } from "../enums/ParticipantType.js";
@@ -215,7 +216,11 @@ export class Session {
                         relativeToAbsolute(key, this.rootPath)
                     );
                     try {
+                        await FileSystemUtilities.saveFile(fileUri);
+                        await FileSystemUtilities.closeFileInEditor(fileUri);
+
                         await vscode.workspace.fs.delete(fileUri);
+
                         const binding = this.bindings.get(key);
                         if (binding) {
                             binding.dispose();
