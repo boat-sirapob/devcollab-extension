@@ -1,7 +1,6 @@
-
 export enum WorkspaceType {
-  SingleFile,
-  SingleRootFolder,
-  MultiRootFolder,
-  Empty,
+    SingleFile,
+    SingleRootFolder,
+    MultiRootFolder,
+    Empty,
 }
