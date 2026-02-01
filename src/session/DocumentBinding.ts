@@ -186,10 +186,7 @@ export class DocumentBinding {
             }
 
             // clear decorations
-            for (const [
-                clientId,
-                decorations,
-            ] of this.decorationTypeMap.entries()) {
+            for (const [, decorations] of this.decorationTypeMap.entries()) {
                 editor.setDecorations(decorations.selection, []);
                 editor.setDecorations(decorations.cursor, []);
             }
@@ -308,7 +305,7 @@ export class DocumentBinding {
                         return;
                     }
 
-                    var cursorState: CursorAwarenessState = {
+                    const cursorState: CursorAwarenessState = {
                         uri: absoluteToRelative(
                             event.textEditor.document.uri.fsPath.toString(),
                             this.rootPath

@@ -84,7 +84,7 @@
         "title": "DevCollab: Copy Room Code"
       },
       {
-        "command": "devcollab.follow",
+        "command": "devcollab.toggleFollow",
         "title": "DevCollab: Follow Collaborator"
       }
     ],
