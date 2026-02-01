@@ -176,7 +176,10 @@ export class SessionService implements ISessionService {
     }
 
     async closeLocalSession() {
-        this.session?.provider.disconnect();
+        if (this.session) {
+            this.session.provider.disconnect();
+            this.session.dispose();
+        }
         await this.context?.globalState.update("pendingSession", undefined);
         this.session = null;
         this._onDidChange.fire();
