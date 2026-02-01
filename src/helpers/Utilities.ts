@@ -14,12 +14,13 @@ import { WorkspaceType } from "../enums/WorkspaceType.js";
  * @returns A nonce
  */
 export function getNonce() {
-  let text = "";
-  const possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  for (let i = 0; i < 32; i++) {
-    text += possible.charAt(Math.floor(Math.random() * possible.length));
-  }
-  return text;
+    let text = "";
+    const possible =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    for (let i = 0; i < 32; i++) {
+        text += possible.charAt(Math.floor(Math.random() * possible.length));
+    }
+    return text;
 }
 
 /**
@@ -33,42 +34,40 @@ export function getNonce() {
  * @param pathList An array of strings representing the path to a file/resource
  * @returns A URI pointing to the file/resource
  */
-export function getUri(webview: Webview, extensionUri: Uri, pathList: string[]) {
-  return webview.asWebviewUri(Uri.joinPath(extensionUri, ...pathList));
+export function getUri(
+    webview: Webview,
+    extensionUri: Uri,
+    pathList: string[]
+) {
+    return webview.asWebviewUri(Uri.joinPath(extensionUri, ...pathList));
 }
 
 export function absoluteToRelative(absPath: string, rootPath: string) {
-  return path
-    .relative(rootPath, absPath)
-    .split(path.sep)
-    .join("/");
+    return path.relative(rootPath, absPath).split(path.sep).join("/");
 }
 
 export function relativeToAbsolute(relPath: string, rootPath: string) {
-  return path.join(
-    rootPath,
-    ...relPath.split("/")
-  );
+    return path.join(rootPath, ...relPath.split("/"));
 }
 
 export async function isDirectoryEmpty(dirUri: vscode.Uri): Promise<boolean> {
-  const entries = await vscode.workspace.fs.readDirectory(dirUri);
-  return entries.length === 0;
+    const entries = await vscode.workspace.fs.readDirectory(dirUri);
+    return entries.length === 0;
 }
 
 export function getWorkspaceType(): WorkspaceType {
-  let folders = vscode.workspace.workspaceFolders;
-  let editor = vscode.window.activeTextEditor;
+    let folders = vscode.workspace.workspaceFolders;
+    let editor = vscode.window.activeTextEditor;
 
-  if (folders && folders.length > 0) {
-    if (folders.length == 1) {
-      return WorkspaceType.SingleRootFolder;
+    if (folders && folders.length > 0) {
+        if (folders.length == 1) {
+            return WorkspaceType.SingleRootFolder;
+        } else {
+            return WorkspaceType.MultiRootFolder;
+        }
+    } else if (!folders && editor) {
+        return WorkspaceType.SingleFile;
     } else {
-      return WorkspaceType.MultiRootFolder;
+        return WorkspaceType.Empty;
     }
-  } else if (!folders && editor) {
-    return WorkspaceType.SingleFile;
-  } else {
-    return WorkspaceType.Empty;
-  }
 }

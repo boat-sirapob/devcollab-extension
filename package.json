@@ -82,6 +82,10 @@
       {
         "command": "devcollab.copyRoomCode",
         "title": "DevCollab: Copy Room Code"
+      },
+      {
+        "command": "devcollab.toggleFollow",
+        "title": "DevCollab: Follow Collaborator"
       }
     ],
     "keybindings": [
@@ -100,20 +104,20 @@
     ]
   },
   "configuration": {
-      "title": "DevCollab",
-      "properties": {
-        "devcollab.serverUrl": {
-          "type": "string",
-          "default": "wss://collab.boat-sirapob.com",
-          "description": "WebSocket server URL for real-time collaboration"
-        },
-        "devcollab.httpServerUrl": {
-          "type": "string",
-          "default": "https://collab.boat-sirapob.com",
-          "description": "HTTP server URL for REST API calls"
-        }
+    "title": "DevCollab",
+    "properties": {
+      "devcollab.serverUrl": {
+        "type": "string",
+        "default": "wss://collab.boat-sirapob.com",
+        "description": "WebSocket server URL for real-time collaboration"
+      },
+      "devcollab.httpServerUrl": {
+        "type": "string",
+        "default": "https://collab.boat-sirapob.com",
+        "description": "HTTP server URL for REST API calls"
       }
-    },
+    }
+  },
   "scripts": {
     "vscode:prepublish": "yarn run compile",
     "compile": "tsc -p ./",
@@ -142,6 +146,8 @@
     "lodash.throttle": "^4.1.1",
     "peer": "^1.0.2",
     "peerjs": "^1.5.5",
+    "reflect-metadata": "^0.2.2",
+    "tsyringe": "^4.10.0",
     "y-websocket": "^3.0.0",
     "yjs": "^13.6.27"
   }

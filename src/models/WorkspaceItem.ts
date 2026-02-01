@@ -1,4 +1,3 @@
-
 // export type WorkspaceFile = {
 //   type: "file",
 //   name: string,
@@ -15,6 +14,6 @@
 // export type WorkspaceItem = WorkspaceFile | WorkspaceFolder;
 
 export type WorkspaceItem = {
-  name: string,
-  path: string,
-}
+    name: string;
+    path: string;
+};
