@@ -3,36 +3,44 @@ import { IFollowService } from "../interfaces/IFollowService.js";
 import { SessionParticipant } from "../models/SessionParticipant.js";
 import { ISessionService } from "../interfaces/ISessionService.js";
 import { AwarenessState } from "../models/AwarenessState.js";
+import { Awareness } from "y-protocols/awareness.js";
 import * as vscode from "vscode";
 
 @injectable()
 export class FollowService implements IFollowService {
     followingParticipant: SessionParticipant | null = null;
     private editListener: vscode.Disposable | null = null;
-    private awarenessListener: ((change: {
-        added: Array<number>;
-        updated: Array<number>;
-        removed: Array<number>;
-    }) => void) | null = null;
+    private awarenessListener:
+        | ((change: {
+              added: Array<number>;
+              updated: Array<number>;
+              removed: Array<number>;
+          }) => void)
+        | null = null;
 
     constructor(
         @inject("ISessionService") private sessionService: ISessionService
     ) {}
 
     dispose(): void {
-        if (this.editListener) {
-            this.editListener.dispose();
-            this.editListener = null;
+        if (this.session?.awareness) {
+            this.endFollow(this.session.awareness);
         }
-        if (this.awarenessListener && this.session) {
-            this.session.awareness.off("change", this.awarenessListener);
-            this.awarenessListener = null;
-        }
-        this.followingParticipant = null;
     }
 
     get session() {
         return this.sessionService.getSession();
+    }
+
+    endFollow(awareness: Awareness): void {
+        if (this.awarenessListener) {
+            awareness.off("change", this.awarenessListener);
+            this.awarenessListener = null;
+        }
+        if (this.editListener) {
+            this.editListener.dispose();
+            this.editListener = null;
+        }
     }
 
     toggleFollow(participant: SessionParticipant): void {
@@ -48,30 +56,19 @@ export class FollowService implements IFollowService {
             return;
         }
 
-        if (this.followingParticipant && this.followingParticipant.clientId === participant.clientId) {
+        if (
+            this.followingParticipant &&
+            this.followingParticipant.clientId === participant.clientId
+        ) {
             this.followingParticipant = null;
-            if (this.awarenessListener) {
-                awareness.off("change", this.awarenessListener);
-                this.awarenessListener = null;
-            }
-            if (this.editListener) {
-                this.editListener.dispose();
-                this.editListener = null;
-            }
+            this.endFollow(awareness);
+
             vscode.window.showInformationMessage(
                 `Stopped following ${participant.displayName}`
             );
         } else {
-            // Stop following current participant if any
             if (this.followingParticipant) {
-                if (this.awarenessListener) {
-                    awareness.off("change", this.awarenessListener);
-                    this.awarenessListener = null;
-                }
-                if (this.editListener) {
-                    this.editListener.dispose();
-                    this.editListener = null;
-                }
+                this.endFollow(awareness);
             }
 
             this.followingParticipant = participant;
@@ -135,7 +132,12 @@ export class FollowService implements IFollowService {
 
             const cursor = state.cursor;
 
-            if (!cursor || !cursor.uri || !cursor.selections || cursor.selections.length === 0) {
+            if (
+                !cursor ||
+                !cursor.uri ||
+                !cursor.selections ||
+                cursor.selections.length === 0
+            ) {
                 return;
             }
 
