@@ -9,10 +9,27 @@ import * as vscode from "vscode";
 export class FollowService implements IFollowService {
     followingParticipant: SessionParticipant | null = null;
     private editListener: vscode.Disposable | null = null;
+    private awarenessListener: ((change: {
+        added: Array<number>;
+        updated: Array<number>;
+        removed: Array<number>;
+    }) => void) | null = null;
 
     constructor(
         @inject("ISessionService") private sessionService: ISessionService
     ) {}
+
+    dispose(): void {
+        if (this.editListener) {
+            this.editListener.dispose();
+            this.editListener = null;
+        }
+        if (this.awarenessListener && this.session) {
+            this.session.awareness.off("change", this.awarenessListener);
+            this.awarenessListener = null;
+        }
+        this.followingParticipant = null;
+    }
 
     get session() {
         return this.sessionService.getSession();
@@ -31,9 +48,12 @@ export class FollowService implements IFollowService {
             return;
         }
 
-        if (this.followingParticipant) {
+        if (this.followingParticipant && this.followingParticipant.clientId === participant.clientId) {
             this.followingParticipant = null;
-            awareness.off("change", this.followHandler);
+            if (this.awarenessListener) {
+                awareness.off("change", this.awarenessListener);
+                this.awarenessListener = null;
+            }
             if (this.editListener) {
                 this.editListener.dispose();
                 this.editListener = null;
@@ -42,8 +62,21 @@ export class FollowService implements IFollowService {
                 `Stopped following ${participant.displayName}`
             );
         } else {
+            // Stop following current participant if any
+            if (this.followingParticipant) {
+                if (this.awarenessListener) {
+                    awareness.off("change", this.awarenessListener);
+                    this.awarenessListener = null;
+                }
+                if (this.editListener) {
+                    this.editListener.dispose();
+                    this.editListener = null;
+                }
+            }
+
             this.followingParticipant = participant;
-            awareness.on("change", this.followHandler);
+            this.awarenessListener = this.followHandler;
+            awareness.on("change", this.awarenessListener);
             this.editListener = vscode.workspace.onDidChangeTextDocument(
                 (e) => {
                     if (
@@ -81,6 +114,11 @@ export class FollowService implements IFollowService {
         updated: Array<number>;
         removed: Array<number>;
     }) => {
+        const followingParticipant = this.followingParticipant;
+        if (!followingParticipant) {
+            return;
+        }
+
         const session = this.session;
         if (!session) {
             return;
@@ -89,17 +127,19 @@ export class FollowService implements IFollowService {
         const allStates = session.awareness.getStates();
 
         for (const [clientId, s] of allStates.entries()) {
-            if (clientId !== this.followingParticipant!.clientId) {
+            if (clientId !== followingParticipant.clientId) {
                 continue;
             }
 
             const state = s as AwarenessState;
 
-            console.log(state);
-
             const cursor = state.cursor;
 
-            var document = session.getDocumentFromRelPath(cursor.uri);
+            if (!cursor || !cursor.uri || !cursor.selections || cursor.selections.length === 0) {
+                return;
+            }
+
+            const document = session.getDocumentFromRelPath(cursor.uri);
 
             if (!document) {
                 return;

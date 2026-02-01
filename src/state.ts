@@ -61,6 +61,7 @@ export class ExtensionState {
     toggleFollow(p: SessionParticipant) {
         if (!this.session) {
             vscode.window.showErrorMessage("No active collaboration session.");
+            return;
         }
 
         this.followService.toggleFollow(p);
