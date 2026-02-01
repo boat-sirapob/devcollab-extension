@@ -82,6 +82,10 @@
       {
         "command": "devcollab.copyRoomCode",
         "title": "DevCollab: Copy Room Code"
+      },
+      {
+        "command": "devcollab.follow",
+        "title": "DevCollab: Follow Collaborator"
       }
     ],
     "keybindings": [
@@ -100,20 +104,20 @@
     ]
   },
   "configuration": {
-      "title": "DevCollab",
-      "properties": {
-        "devcollab.serverUrl": {
-          "type": "string",
-          "default": "wss://collab.boat-sirapob.com",
-          "description": "WebSocket server URL for real-time collaboration"
-        },
-        "devcollab.httpServerUrl": {
-          "type": "string",
-          "default": "https://collab.boat-sirapob.com",
-          "description": "HTTP server URL for REST API calls"
-        }
+    "title": "DevCollab",
+    "properties": {
+      "devcollab.serverUrl": {
+        "type": "string",
+        "default": "wss://collab.boat-sirapob.com",
+        "description": "WebSocket server URL for real-time collaboration"
+      },
+      "devcollab.httpServerUrl": {
+        "type": "string",
+        "default": "https://collab.boat-sirapob.com",
+        "description": "HTTP server URL for REST API calls"
       }
-    },
+    }
+  },
   "scripts": {
     "vscode:prepublish": "yarn run compile",
     "compile": "tsc -p ./",

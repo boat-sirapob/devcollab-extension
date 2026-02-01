@@ -7,90 +7,94 @@ import { ISessionService } from "./interfaces/ISessionService.js";
 
 @injectable()
 export class ExtensionState {
-  private _onDidChange = new vscode.EventEmitter<void>();
-  readonly onDidChange = this._onDidChange.event;
-  context?: vscode.ExtensionContext;
-  
-  disposables: vscode.Disposable[];
+    private _onDidChange = new vscode.EventEmitter<void>();
+    readonly onDidChange = this._onDidChange.event;
+    context?: vscode.ExtensionContext;
 
-  constructor(
-    @inject("IFollowService") private followService: IFollowService,
-    @inject("ISessionService") private sessionService: ISessionService
-  ) {
-    this.disposables = [];
+    disposables: vscode.Disposable[];
 
-    this.sessionService.onDidChange(() => {
-      this._onDidChange.fire();
-    });
-  }
+    constructor(
+        @inject("IFollowService") private followService: IFollowService,
+        @inject("ISessionService") private sessionService: ISessionService
+    ) {
+        this.disposables = [];
 
-  dispose() {
-    for (const d of this.disposables) {
-      d.dispose();
+        this.sessionService.onDidChange(() => {
+            this._onDidChange.fire();
+        });
     }
-    this.disposables = [];
 
-    this.sessionService.dispose();
-  }
+    dispose() {
+        for (const d of this.disposables) {
+            d.dispose();
+        }
+        this.disposables = [];
 
-  setContext(context: vscode.ExtensionContext) {
-    this.context = context;
-    this.sessionService.setContext(context);
-  }
+        this.sessionService.dispose();
+    }
 
-  get session() {
-    return this.sessionService.session;
-  }
+    setContext(context: vscode.ExtensionContext) {
+        this.context = context;
+        this.sessionService.setContext(context);
+    }
 
-  get loading() {
-    return this.sessionService.loading;
-  }
+    get session() {
+        return this.sessionService.session;
+    }
 
-  cleanupOldTempDirs() {
-    this.sessionService.cleanupOldTempDirs();
-  }
+    get loading() {
+        return this.sessionService.loading;
+    }
 
-  async restorePendingSession() {
-    await this.sessionService.restorePendingSession();
-  }
+    cleanupOldTempDirs() {
+        this.sessionService.cleanupOldTempDirs();
+    }
 
-  async copyRoomCode(roomCode?: string) {
-    await this.sessionService.copyRoomCode(roomCode);
-  }
+    async restorePendingSession() {
+        await this.sessionService.restorePendingSession();
+    }
 
-    this.followService.toggleFollow(p);
-  }
+    async copyRoomCode(roomCode?: string) {
+        await this.sessionService.copyRoomCode(roomCode);
+    }
 
-  async test() {
-    console.log(this.session?.workspaceMap)
-  }
+    toggleFollow(p: SessionParticipant) {
+        if (!this.session) {
+            vscode.window.showErrorMessage("No active collaboration session.");
+        }
 
-  async hostSession() {
-    await this.sessionService.hostSession();
-  }
+        this.followService.toggleFollow(p);
+    }
 
-  async joinSession() {
-    await this.sessionService.joinSession();
-  }
+    async test() {
+        console.log(this.session?.workspaceMap);
+    }
 
-  async endSession() {
-    await this.sessionService.endSession();
-  }
+    async hostSession() {
+        await this.sessionService.hostSession();
+    }
 
-  async closeSession() {
-    await this.sessionService.closeSession();
-  }
+    async joinSession() {
+        await this.sessionService.joinSession();
+    }
 
-  async disconnectSession() {
-    await this.sessionService.disconnectSession();
-  }
+    async endSession() {
+        await this.sessionService.endSession();
+    }
 
-  handleUndo() {
-    this.sessionService.handleUndo();
-  }
-  
-  handleRedo() {
-    this.sessionService.handleRedo();
-  }
+    async closeSession() {
+        await this.sessionService.closeSession();
+    }
+
+    async disconnectSession() {
+        await this.sessionService.disconnectSession();
+    }
+
+    handleUndo() {
+        this.sessionService.handleUndo();
+    }
+
+    handleRedo() {
+        this.sessionService.handleRedo();
+    }
 }
-

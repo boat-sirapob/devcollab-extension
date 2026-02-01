@@ -54,7 +54,9 @@ export class SessionService implements ISessionService {
                 return;
             }
 
-            const entries = fs.readdirSync(tempDirBase, { withFileTypes: true });
+            const entries = fs.readdirSync(tempDirBase, {
+                withFileTypes: true,
+            });
             for (const entry of entries) {
                 if (entry.isDirectory()) {
                     const dirPath = path.join(tempDirBase, entry.name);
@@ -75,11 +77,16 @@ export class SessionService implements ISessionService {
     }
 
     async restorePendingSession() {
-        if (!this.context) { return; }
+        if (!this.context) {
+            return;
+        }
 
-        let pendingSession = this.context.globalState.get<PendingSessionState>("pendingSession");
+        let pendingSession =
+            this.context.globalState.get<PendingSessionState>("pendingSession");
 
-        if (!pendingSession) { return; }
+        if (!pendingSession) {
+            return;
+        }
 
         if (!pendingSession.fromJoin) {
             // todo: dialogue choose whether to rejoin if not from join session
@@ -149,17 +156,22 @@ export class SessionService implements ISessionService {
     async copyRoomCode(roomCode?: string) {
         const code = roomCode ?? this.session?.roomCode;
         if (!code) {
-            vscode.window.showErrorMessage("No active collaboration session to copy code from.");
+            vscode.window.showErrorMessage(
+                "No active collaboration session to copy code from."
+            );
             return;
         }
         await vscode.env.clipboard.writeText(code);
-        vscode.window.showInformationMessage(`Copied room code ${code} to clipboard!`);
+        vscode.window.showInformationMessage(
+            `Copied room code ${code} to clipboard!`
+        );
     }
 
     private async inputUsername(): Promise<string | undefined> {
         return await vscode.window.showInputBox({
             title: "Display name",
-            placeHolder: "Enter your display name for this session (empty to cancel)",
+            placeHolder:
+                "Enter your display name for this session (empty to cancel)",
         });
     }
 
@@ -173,16 +185,18 @@ export class SessionService implements ISessionService {
     // https://stackblitz.com/edit/y-quill-doc-list?file=index.ts
     async hostSession() {
         if (this.session !== null) {
-            vscode.window.showErrorMessage("You are already in a collaboration session.");
+            vscode.window.showErrorMessage(
+                "You are already in a collaboration session."
+            );
             return;
         }
-        
+
         this.setLoading(true);
 
         let folders = vscode.workspace.workspaceFolders;
         let editor = vscode.window.activeTextEditor;
         let workspaceType = getWorkspaceType();
-        
+
         let targetRootPath: string | undefined;
         let singleFilePath: string | undefined;
         let startedForFileName: string | undefined;
@@ -190,12 +204,16 @@ export class SessionService implements ISessionService {
         switch (workspaceType) {
             case WorkspaceType.Empty:
                 // todo: open file browser instead?
-                vscode.window.showInformationMessage("Open a file or folder to start collaborating!")
+                vscode.window.showInformationMessage(
+                    "Open a file or folder to start collaborating!"
+                );
                 this.setLoading(false);
                 return;
             case WorkspaceType.SingleFile: {
                 if (!editor) {
-                    vscode.window.showInformationMessage("Open a file to start collaborating!")
+                    vscode.window.showInformationMessage(
+                        "Open a file to start collaborating!"
+                    );
                     this.setLoading(false);
                     return;
                 }
@@ -210,19 +228,28 @@ export class SessionService implements ISessionService {
                 targetRootPath = folders![0].uri.fsPath;
                 break;
             case WorkspaceType.MultiRootFolder:
-                vscode.window.showInformationMessage("Sorry, multi-rooted workspaces are not supported. Please open a file or folder to start collaborating.")
+                vscode.window.showInformationMessage(
+                    "Sorry, multi-rooted workspaces are not supported. Please open a file or folder to start collaborating."
+                );
                 this.setLoading(false);
                 return;
         }
 
         let username = await this.inputUsername();
-        if (!username) { 
-            vscode.window.showInformationMessage("Cancelled hosting collaboration session.");    
+        if (!username) {
+            vscode.window.showInformationMessage(
+                "Cancelled hosting collaboration session."
+            );
             this.setLoading(false);
             return;
         }
 
-        this.session = await Session.hostSession(targetRootPath!, username, this._onDidChange, singleFilePath);
+        this.session = await Session.hostSession(
+            targetRootPath!,
+            username,
+            this._onDidChange,
+            singleFilePath
+        );
 
         await vscode.window.withProgress(
             {
@@ -234,32 +261,37 @@ export class SessionService implements ISessionService {
                 try {
                     await this.session!.waitForConnection(5000);
                 } catch {
-                    vscode.window.showErrorMessage("Unable to connect to collaboration server");
+                    vscode.window.showErrorMessage(
+                        "Unable to connect to collaboration server"
+                    );
                     await this.closeLocalSession();
                 } finally {
                     this.setLoading(false);
                 }
             }
         );
-        if (this.session === null) { return; }
-        
+        if (this.session === null) {
+            return;
+        }
+
         const message = startedForFileName
             ? `Collaboration session started for file ${startedForFileName} with room code: ${this.session.roomCode}`
             : `Collaboration session started with room code: ${this.session.roomCode}`;
 
-        vscode.window.showInformationMessage(
-            message,
-            "Copy code to clipboard",
-        ).then(async copy => {
-            if (copy) {
-                this.copyRoomCode(this.session?.roomCode);
-            }
-        });
+        vscode.window
+            .showInformationMessage(message, "Copy code to clipboard")
+            .then(async (copy) => {
+                if (copy) {
+                    this.copyRoomCode(this.session?.roomCode);
+                }
+            });
     }
 
     async joinSession() {
         if (this.session !== null) {
-            vscode.window.showErrorMessage("You are already in a collaboration session.");
+            vscode.window.showErrorMessage(
+                "You are already in a collaboration session."
+            );
             return;
         }
 
@@ -267,7 +299,7 @@ export class SessionService implements ISessionService {
 
         const roomCode = await vscode.window.showInputBox({
             prompt: "Enter the room code for the collaboration session you want to join",
-            placeHolder: "Room Code"
+            placeHolder: "Room Code",
         });
         if (!roomCode) {
             vscode.window.showInformationMessage(
@@ -278,8 +310,10 @@ export class SessionService implements ISessionService {
         }
 
         let username = await this.inputUsername();
-        if (!username) { 
-            vscode.window.showInformationMessage("Cancelled joining collaboration session.");    
+        if (!username) {
+            vscode.window.showInformationMessage(
+                "Cancelled joining collaboration session."
+            );
             this.setLoading(false);
             return;
         }
@@ -288,7 +322,7 @@ export class SessionService implements ISessionService {
         if (!fs.existsSync(tempDirBase)) {
             fs.mkdirSync(tempDirBase, { recursive: true });
         }
-        
+
         this.tempDir = fs.mkdtempSync(path.join(tempDirBase, `session-`));
         const targetUri = vscode.Uri.file(this.tempDir);
 
@@ -299,7 +333,7 @@ export class SessionService implements ISessionService {
                 roomCode: roomCode,
                 username: username,
                 tempDir: this.tempDir,
-                fromJoin: true
+                fromJoin: true,
             };
 
             await this.context.globalState.update("pendingSession", state);
@@ -314,7 +348,9 @@ export class SessionService implements ISessionService {
 
     async endSession() {
         if (this.session === null) {
-            vscode.window.showErrorMessage("You are not in a collaboration session.");
+            vscode.window.showErrorMessage(
+                "You are not in a collaboration session."
+            );
             return;
         }
         if (this.session.participantType === "Host") {
@@ -325,12 +361,16 @@ export class SessionService implements ISessionService {
     }
 
     async closeSession() {
-        vscode.window.showInformationMessage("The collaboration session has been ended.");
+        vscode.window.showInformationMessage(
+            "The collaboration session has been ended."
+        );
         await this.closeLocalSession();
     }
 
     async disconnectSession() {
-        vscode.window.showInformationMessage("You have disconnected from the collaboration session.");
+        vscode.window.showInformationMessage(
+            "You have disconnected from the collaboration session."
+        );
         await this.closeLocalSession();
         await vscode.commands.executeCommand("workbench.action.closeFolder");
     }
@@ -343,7 +383,10 @@ export class SessionService implements ISessionService {
             return;
         }
 
-        const relPath = absoluteToRelative(editor.document.uri.fsPath.toString(), this.session.rootPath);
+        const relPath = absoluteToRelative(
+            editor.document.uri.fsPath.toString(),
+            this.session.rootPath
+        );
         const binding = this.session.bindings.get(relPath);
 
         if (binding?.yUndoManager) {
@@ -352,7 +395,7 @@ export class SessionService implements ISessionService {
             vscode.commands.executeCommand("undo");
         }
     }
-    
+
     handleRedo() {
         const editor = vscode.window.activeTextEditor;
 
@@ -361,7 +404,10 @@ export class SessionService implements ISessionService {
             return;
         }
 
-        const relPath = absoluteToRelative(editor.document.uri.fsPath.toString(), this.session.rootPath);
+        const relPath = absoluteToRelative(
+            editor.document.uri.fsPath.toString(),
+            this.session.rootPath
+        );
         const binding = this.session.bindings.get(relPath);
 
         if (binding?.yUndoManager) {
@@ -371,4 +417,3 @@ export class SessionService implements ISessionService {
         }
     }
 }
-
