@@ -1,4 +1,4 @@
-import type { ChatMessage } from "../models/ChatMessage";
+import type { ChatMessage } from "../models/ChatHistoryItem";
 
 export interface IMessageService {
     request(method: "GET" | "POST", endpoint: string, data?: any): Promise<any>;

@@ -1,0 +1,14 @@
+.container {
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    gap: 12px;
+    padding: 8px;
+
+    .timelineTimestamp {
+        font-weight: bold;
+        font-size: 0.7rem;
+        opacity: 0.5;
+        white-space: nowrap;
+    }
+}

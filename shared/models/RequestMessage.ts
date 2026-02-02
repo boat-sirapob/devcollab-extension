@@ -1,5 +1,5 @@
+import type { WebviewMessageBase } from "./WebviewMessageBase.js";
 import { WebviewMessageType } from "../enums/WebviewMessageType.js";
-import { WebviewMessageBase } from "./WebviewMessageBase.js";
 
 export interface RequestMessage extends WebviewMessageBase {
     type: WebviewMessageType.REQUEST;

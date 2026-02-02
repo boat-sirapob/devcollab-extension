@@ -1,11 +1,11 @@
-import { injectable } from "tsyringe";
+import type { ChatMessage } from "../models/ChatHistoryItem.js";
 import type { IMessageService } from "../interfaces/IMessageService.js";
-import type { ChatMessage } from "../models/ChatMessage.js";
-import type { ResponseMessage } from "../../../shared/models/ResponseMessage.js";
-import { vscode } from "../utilities/vscode.js";
-import type { WebviewMessageBase } from "../../../shared/models/WebviewMessageBase.js";
 import type { RequestMessage } from "../../../shared/models/RequestMessage.js";
+import type { ResponseMessage } from "../../../shared/models/ResponseMessage.js";
+import type { WebviewMessageBase } from "../../../shared/models/WebviewMessageBase.js";
 import { WebviewMessageType } from "../../../shared/enums/WebviewMessageType.js";
+import { injectable } from "tsyringe";
+import { vscode } from "../utilities/vscode.js";
 
 interface PendingRequest {
     resolve: (value: any) => void;

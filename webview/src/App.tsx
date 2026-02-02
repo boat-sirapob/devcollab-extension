@@ -1,6 +1,6 @@
 import "./App.css";
 
-import ChatView from "./views/ChatView/ChatView";
+import ChatView from "./components/views/ChatView/ChatView";
 
 if (import.meta.env.DEV) {
     // @ts-ignore
