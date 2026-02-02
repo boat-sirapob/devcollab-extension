@@ -4,10 +4,11 @@ import * as vscode from "vscode";
 
 import container, { registerExtensionContext } from "./di/Container.js";
 
+import { ChatViewProvider } from "./ui/chat-view/ChatViewProvider.js";
 import { ExtensionState } from "./state.js";
-import { SessionInfoSidebarProvider } from "./ui/sidebar/SessionInfoSidebarProvider.js";
-import { StatusBarProvider } from "./ui/status-bar/StatusBarProvider.js";
+import { SessionInfoViewProvider } from "./ui/session-info-view/SessionInfoViewProvider.js";
 import { registerServices } from "./di/Container.js";
+import { StatusBarProvider } from "./ui/status-bar/StatusBarProvider.js";
 
 let state: ExtensionState;
 
@@ -15,7 +16,7 @@ export function activate(context: vscode.ExtensionContext) {
     registerServices();
     registerExtensionContext(context);
     initializeState(context);
-    registerSidebar(context);
+    registerViewProviders(context);
     registerCommands(context);
     registerStatusBar(context);
 }
@@ -46,11 +47,17 @@ export function initializeState(context: vscode.ExtensionContext) {
     }, context.subscriptions);
 }
 
-export function registerSidebar(context: vscode.ExtensionContext) {
-    const sidebarProvider = new SessionInfoSidebarProvider(state);
-    vscode.window.createTreeView("devcollab", {
+export function registerViewProviders(context: vscode.ExtensionContext) {
+    const sidebarProvider = new SessionInfoViewProvider(state);
+    vscode.window.createTreeView(sidebarProvider.viewType, {
         treeDataProvider: sidebarProvider,
     });
+
+    const chatProvider = new ChatViewProvider(context.extensionUri);
+    vscode.window.registerWebviewViewProvider(
+        chatProvider.viewType,
+        chatProvider
+    );
 }
 
 export function registerCommands(context: vscode.ExtensionContext) {

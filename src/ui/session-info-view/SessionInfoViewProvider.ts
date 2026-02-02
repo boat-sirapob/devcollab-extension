@@ -10,7 +10,9 @@ type Node = {
     command?: { command: string; title: string; arguments?: any[] };
 };
 
-export class SessionInfoSidebarProvider implements vscode.TreeDataProvider<Node> {
+export class SessionInfoViewProvider implements vscode.TreeDataProvider<Node> {
+    public readonly viewType = "devcollab.main";
+
     private _onDidChangeTreeData = new vscode.EventEmitter<void>();
     readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
