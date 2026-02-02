@@ -1,6 +1,5 @@
 import { WebviewMessageType } from "../enums/WebviewMessageType.js";
 
-export interface WebviewMessage {
+export interface WebviewMessageBase {
     type: WebviewMessageType;
-    value: any;
 }

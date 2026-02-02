@@ -5,7 +5,6 @@
         "outDir": "out",
         "lib": ["ES2022", "DOM"],
         "sourceMap": true,
-        "rootDir": "src",
         "strict": true /* enable all strict type-checking options */,
         "experimentalDecorators": true,
         "emitDecoratorMetadata": true
