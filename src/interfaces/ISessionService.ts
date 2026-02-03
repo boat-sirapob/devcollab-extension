@@ -7,6 +7,7 @@ export interface ISessionService {
     loading: boolean;
     tempDir: string | null;
     onDidChange: vscode.Event<void>;
+    onBeginSession: vscode.Event<void>;
 
     cleanupOldTempDirs(): void;
     restorePendingSession(): Promise<void>;

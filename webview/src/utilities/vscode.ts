@@ -72,6 +72,7 @@ class VSCodeAPIWrapper {
      */
     public postMessage(message: unknown) {
         if (this.vsCodeApi) {
+            console.log("Posting message to VS Code extension:", message);
             this.vsCodeApi.postMessage(message);
         } else {
             console.log(message);

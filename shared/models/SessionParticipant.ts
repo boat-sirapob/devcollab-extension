@@ -1,4 +1,4 @@
-import { ParticipantType } from "../enums/ParticipantType.js";
+import { ParticipantType } from "../../src/enums/ParticipantType.js";
 
 export interface SessionParticipant {
     clientId: number;

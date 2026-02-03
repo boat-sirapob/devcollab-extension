@@ -1,4 +1,4 @@
-import { SessionParticipant } from "../models/SessionParticipant.js";
+import { SessionParticipant } from "../../shared/models/SessionParticipant.js";
 import { SessionParticipantDto } from "../dto/SessionParticipantDto.js";
 
 export class Mapper {

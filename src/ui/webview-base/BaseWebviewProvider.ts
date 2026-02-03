@@ -1,20 +1,12 @@
 import * as vscode from "vscode";
 
-import type { RequestMessage } from "../../../shared/models/RequestMessage.js";
-import type { ResponseMessage } from "../../../shared/models/ResponseMessage.js";
-import { getNonce } from "../../helpers/Utilities.js";
+import type { RequestMessage } from "../../../shared/models/webview-messages/RequestMessage.js";
+import type { ResponseMessage } from "../../../shared/models/webview-messages/ResponseMessage.js";
+import { WebviewMessageBase } from "../../../shared/models/webview-messages/WebviewMessageBase.js";
 import { WebviewMessageType } from "../../../shared/enums/WebviewMessageType.js";
+import { getNonce } from "../../helpers/Utilities.js";
 
-export type GetEndpointMap = Record<string, unknown>;
-export type PostEndpointMap = Record<
-    string,
-    { request: unknown; response: unknown }
->;
-
-export abstract class BaseWebviewProvider<
-    GETEndpoints extends GetEndpointMap = GetEndpointMap,
-    POSTEndpoints extends PostEndpointMap = PostEndpointMap,
->
+export abstract class BaseWebviewProvider
     implements vscode.WebviewViewProvider
 {
     protected _view?: vscode.WebviewView;
@@ -52,14 +44,9 @@ export abstract class BaseWebviewProvider<
             let result: any;
 
             if (message.method === "GET") {
-                result = await this.handleGet(
-                    message.endpoint as keyof GETEndpoints
-                );
+                result = await this.handleGet(message.endpoint);
             } else if (message.method === "POST") {
-                result = await this.handlePost(
-                    message.endpoint as keyof POSTEndpoints,
-                    message.data as POSTEndpoints[keyof POSTEndpoints]["request"]
-                );
+                result = await this.handlePost(message.endpoint, message.data);
             }
 
             this.sendResponse(message.id, result);
@@ -77,23 +64,22 @@ export abstract class BaseWebviewProvider<
             result,
             error,
         };
-        this._view?.webview.postMessage(response);
+        this.postMessage(response);
     }
 
-    protected async handleGet<K extends keyof GETEndpoints>(
-        _endpoint: K
-    ): Promise<GETEndpoints[K]> {
+    protected postMessage(message: any): void {
+        this._view?.webview.postMessage(message);
+    }
+
+    protected async handleGet(_endpoint: string): Promise<any> {
         throw new Error("GET handler not implemented");
     }
 
-    protected async handlePost<K extends keyof POSTEndpoints>(
-        _endpoint: K,
-        _data?: POSTEndpoints[K]["request"]
-    ): Promise<POSTEndpoints[K]["response"]> {
+    protected async handlePost(_endpoint: string, _data: any): Promise<any> {
         throw new Error("POST handler not implemented");
     }
 
-    protected onDidReceiveMessage(_data: any): void {
+    protected onDidReceiveMessage(_data: WebviewMessageBase): void {
         // override in subclasses to handle messages
     }
 

@@ -6,9 +6,10 @@ import container, { registerExtensionContext } from "./di/Container.js";
 
 import { ChatViewProvider } from "./ui/chat-view/ChatViewProvider.js";
 import { ExtensionState } from "./state.js";
+import { ISessionService } from "./interfaces/ISessionService.js";
 import { SessionInfoViewProvider } from "./ui/session-info-view/SessionInfoViewProvider.js";
-import { registerServices } from "./di/Container.js";
 import { StatusBarProvider } from "./ui/status-bar/StatusBarProvider.js";
+import { registerServices } from "./di/Container.js";
 
 let state: ExtensionState;
 
@@ -53,7 +54,13 @@ export function registerViewProviders(context: vscode.ExtensionContext) {
         treeDataProvider: sidebarProvider,
     });
 
-    const chatProvider = new ChatViewProvider(context.extensionUri);
+    const sessionService: ISessionService =
+        container.resolve("ISessionService");
+
+    const chatProvider = new ChatViewProvider(
+        sessionService,
+        context.extensionUri
+    );
     vscode.window.registerWebviewViewProvider(
         chatProvider.viewType,
         chatProvider

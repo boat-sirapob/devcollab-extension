@@ -2,8 +2,10 @@ import "reflect-metadata";
 
 import * as vscode from "vscode";
 
+import { ChatService } from "../services/ChatService.js";
 import { ExtensionState } from "../state.js";
 import { FollowService } from "../services/FollowService.js";
+import { IChatService } from "../interfaces/IChatService.js";
 import { IFollowService } from "../interfaces/IFollowService.js";
 import { IPersistenceService } from "../interfaces/IPersistenceService.js";
 import { ISessionService } from "../interfaces/ISessionService.js";
@@ -19,6 +21,10 @@ export function registerExtensionContext(context: vscode.ExtensionContext) {
 }
 
 export function registerServices() {
+    container.registerSingleton<IChatService>(
+        "IChatService",
+        ChatService
+    );
     container.registerSingleton<IFollowService>(
         "IFollowService",
         FollowService

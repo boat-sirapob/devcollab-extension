@@ -13,7 +13,7 @@ import { FileSystemUtilities } from "../helpers/FileSystemUtilities.js";
 import { HocuspocusProvider } from "@hocuspocus/provider";
 import { Mapper } from "../helpers/Mapper.js";
 import { ParticipantType } from "../enums/ParticipantType.js";
-import { SessionParticipant } from "../models/SessionParticipant.js";
+import { SessionParticipant } from "../../shared/models/SessionParticipant.js";
 import { SessionParticipantDto } from "../dto/SessionParticipantDto.js";
 import { WorkspaceItem } from "../models/WorkspaceItem.js";
 import { readdir } from "fs/promises";

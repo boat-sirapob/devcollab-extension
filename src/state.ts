@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 
 import { injectable, inject } from "tsyringe";
 import { IFollowService } from "./interfaces/IFollowService.js";
-import { SessionParticipant } from "./models/SessionParticipant.js";
+import { SessionParticipant } from "../shared/models/SessionParticipant.js";
 import { ISessionService } from "./interfaces/ISessionService.js";
 
 @injectable()
@@ -62,7 +62,7 @@ export class ExtensionState {
     }
 
     async test() {
-        console.log(this.session?.workspaceMap);
+        console.log("test");
     }
 
     async hostSession() {

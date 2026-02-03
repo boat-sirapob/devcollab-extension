@@ -1,6 +1,6 @@
 import { injectable, inject } from "tsyringe";
 import { IFollowService } from "../interfaces/IFollowService.js";
-import { SessionParticipant } from "../models/SessionParticipant.js";
+import { SessionParticipant } from "../../shared/models/SessionParticipant.js";
 import { ISessionService } from "../interfaces/ISessionService.js";
 import { AwarenessState } from "../models/AwarenessState.js";
 import { Awareness } from "y-protocols/awareness.js";

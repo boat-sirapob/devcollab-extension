@@ -1,8 +1,7 @@
-import type { ChatMessage } from "../models/ChatHistoryItem.js";
 import type { IMessageService } from "../interfaces/IMessageService.js";
-import type { RequestMessage } from "../../../shared/models/RequestMessage.js";
-import type { ResponseMessage } from "../../../shared/models/ResponseMessage.js";
-import type { WebviewMessageBase } from "../../../shared/models/WebviewMessageBase.js";
+import type { RequestMessage } from "../../../shared/models/webview-messages/RequestMessage.js";
+import type { ResponseMessage } from "../../../shared/models/webview-messages/ResponseMessage.js";
+import type { WebviewMessageBase } from "../../../shared/models/webview-messages/WebviewMessageBase.js";
 import { WebviewMessageType } from "../../../shared/enums/WebviewMessageType.js";
 import { injectable } from "tsyringe";
 import { vscode } from "../utilities/vscode.js";
@@ -75,8 +74,4 @@ export class MessageService implements IMessageService {
             }
         }
     };
-
-    getChatMessages(): Promise<ChatMessage[]> {
-        return this.get<ChatMessage[]>("/messages");
-    }
 }

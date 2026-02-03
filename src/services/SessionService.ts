@@ -15,6 +15,8 @@ import { IPersistenceService } from "../interfaces/IPersistenceService.js";
 export class SessionService implements ISessionService {
     private _onDidChange = new vscode.EventEmitter<void>();
     readonly onDidChange = this._onDidChange.event;
+    private _onInitialize = new vscode.EventEmitter<void>();
+    readonly onBeginSession = this._onInitialize.event;
 
     loading: boolean;
     session: Session | null;
@@ -115,6 +117,8 @@ export class SessionService implements ISessionService {
                             await this.closeLocalSession();
                             return;
                         }
+
+                        this._onInitialize.fire();
 
                         vscode.window.showInformationMessage(
                             "Connected to collaboration session"
@@ -267,6 +271,8 @@ export class SessionService implements ISessionService {
         if (this.session === null) {
             return;
         }
+
+        this._onInitialize.fire();
 
         const message = startedForFileName
             ? `Collaboration session started for file ${startedForFileName} with room code: ${this.session.roomCode}`
