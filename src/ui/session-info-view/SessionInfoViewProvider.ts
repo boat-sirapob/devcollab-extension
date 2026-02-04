@@ -64,8 +64,6 @@ export class SessionInfoViewProvider implements vscode.TreeDataProvider<Node> {
         const session = this.sessionService.get<Session>("Session");
         const awarenessService = this.sessionService.get<IAwarenessService>("IAwarenessService");
 
-        console.log("test");
-
         return [
             {
                 label: "Session Info",

@@ -7,6 +7,7 @@ import { SessionParticipantDto } from "../dto/SessionParticipantDto.js";
 import { ParticipantType } from "../enums/ParticipantType.js";
 import { Mapper } from "../helpers/Mapper.js";
 import { Session } from "../session/Session.js";
+import { AwarenessState } from "../models/AwarenessState.js";
 
 const usercolors = [
     "#30bced",
@@ -28,7 +29,34 @@ export class AwarenessService implements IAwarenessService {
         this.awareness = session.awareness;
     }
 
+    private upsertParticipant(participant: SessionParticipant): void {
+        const index = this.participants.findIndex(
+            (p) => p.clientId === participant.clientId
+        );
+        if (index === -1) {
+            this.participants.push(participant);
+        } else {
+            this.participants[index] = participant;
+        }
+    }
+
     setupAwareness(onUpdate: () => void, onHostDisconnect?: () => void): void {
+        const syncParticipantsFromStates = () => {
+            const allStates = this.awareness.getStates();
+            for (const [id, state] of allStates) {
+                const user: SessionParticipantDto | undefined = (state as AwarenessState).user;
+                if (!user) {
+                    continue;
+                }
+
+                const sessionUser = Mapper.fromSessionParticipantDto(user, id);
+                this.upsertParticipant(sessionUser);
+            }
+        };
+
+        syncParticipantsFromStates();
+        onUpdate();
+
         this.awareness.on(
             "change",
             ({
@@ -57,8 +85,22 @@ export class AwarenessService implements IAwarenessService {
                         user,
                         id
                     );
-                    this.participants.push(sessionUser);
+                    this.upsertParticipant(sessionUser);
                     onUpdate();
+                });
+
+                updated.forEach((id) => {
+                    const state = allStates.get(id);
+                    const user: SessionParticipantDto = state?.user;
+                    if (!user) {
+                        return;
+                    }
+
+                    const sessionUser = Mapper.fromSessionParticipantDto(
+                        user,
+                        id
+                    );
+                    this.upsertParticipant(sessionUser);
                 });
 
                 removed.forEach((id) => {
@@ -104,14 +146,14 @@ export class AwarenessService implements IAwarenessService {
             type: userType,
         };
 
-        this.participants.push(user);
+        this.upsertParticipant(user);
 
         let awarenessUser = Mapper.toSessionParticipantDto(user);
         this.awareness.setLocalStateField("user", awarenessUser);
     }
 
     addParticipant(participant: SessionParticipant): void {
-        this.participants.push(participant);
+        this.upsertParticipant(participant);
     }
 
     dispose(): void {

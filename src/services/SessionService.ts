@@ -62,19 +62,19 @@ export class SessionService implements ISessionService {
             "Session",
             this.session!
         );
-        this.sessionContainer.register<IFileSystemService>(
+        this.sessionContainer.registerSingleton<IFileSystemService>(
             "IFileSystemService",
             FileSystemService
         );
-        this.sessionContainer.register<IAwarenessService>(
+        this.sessionContainer.registerSingleton<IAwarenessService>(
             "IAwarenessService",
             AwarenessService
         );
-        this.sessionContainer.register<IFollowService>(
+        this.sessionContainer.registerSingleton<IFollowService>(
             "IFollowService",
             FollowService
         );
-        this.sessionContainer.register<IChatService>(
+        this.sessionContainer.registerSingleton<IChatService>(
             "IChatService",
             ChatService
         );
