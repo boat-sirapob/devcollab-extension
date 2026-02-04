@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 
+import { InjectionToken } from "tsyringe";
 import { Session } from "../session/Session.js";
 
 export interface ISessionService {
@@ -8,6 +9,11 @@ export interface ISessionService {
     tempDir: string | null;
     onDidChange: vscode.Event<void>;
     onBeginSession: vscode.Event<void>;
+
+    initializeSessionContainer(): void;
+    disposeSessionContainer(): void;
+    get<T>(token: InjectionToken<T>): T;
+    hasSession(): boolean;
 
     cleanupOldTempDirs(): void;
     restorePendingSession(): Promise<void>;
@@ -20,6 +26,5 @@ export interface ISessionService {
     closeLocalSession(): Promise<void>;
     handleUndo(): void;
     handleRedo(): void;
-    getSession(): Session | null;
     dispose(): void;
 }

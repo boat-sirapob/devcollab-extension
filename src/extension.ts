@@ -40,22 +40,25 @@ export function initializeState(context: vscode.ExtensionContext) {
     );
 
     state.onDidChange(() => {
+        const sessionService: ISessionService = container.resolve("ISessionService");
+
+        console.log("state changed, updating context");
+
         vscode.commands.executeCommand(
             "setContext",
             "devcollab.isInSession",
-            state.session !== null
+            sessionService.hasSession()
         );
     }, context.subscriptions);
 }
 
 export function registerViewProviders(context: vscode.ExtensionContext) {
-    const sidebarProvider = new SessionInfoViewProvider(state);
+    const sessionService: ISessionService = container.resolve("ISessionService");
+
+    const sidebarProvider = new SessionInfoViewProvider(state, sessionService);
     vscode.window.createTreeView(sidebarProvider.viewType, {
         treeDataProvider: sidebarProvider,
     });
-
-    const sessionService: ISessionService =
-        container.resolve("ISessionService");
 
     const chatProvider = new ChatViewProvider(
         sessionService,
@@ -114,7 +117,9 @@ export function registerCommands(context: vscode.ExtensionContext) {
 }
 
 export function registerStatusBar(context: vscode.ExtensionContext) {
-    const statusBarProvider = new StatusBarProvider(state);
+    const sessionService: ISessionService = container.resolve("ISessionService");
+
+    const statusBarProvider = new StatusBarProvider(state, sessionService);
     context.subscriptions.push(statusBarProvider.getStatusBarItem());
 }
 

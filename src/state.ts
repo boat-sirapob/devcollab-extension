@@ -13,7 +13,6 @@ export class ExtensionState {
     disposables: vscode.Disposable[];
 
     constructor(
-        @inject("IFollowService") private followService: IFollowService,
         @inject("ISessionService") private sessionService: ISessionService
     ) {
         this.disposables = [];
@@ -30,10 +29,6 @@ export class ExtensionState {
         this.disposables = [];
 
         this.sessionService.dispose();
-    }
-
-    get session() {
-        return this.sessionService.session;
     }
 
     get loading() {
@@ -53,12 +48,13 @@ export class ExtensionState {
     }
 
     toggleFollow(p: SessionParticipant) {
-        if (!this.session) {
+        if (!this.sessionService.hasSession()) {
             vscode.window.showErrorMessage("No active collaboration session.");
             return;
         }
 
-        this.followService.toggleFollow(p);
+        const followService = this.sessionService.get<IFollowService>("IFollowService");
+        followService.toggleFollow(p);
     }
 
     async test() {

@@ -2,6 +2,9 @@ import * as vscode from "vscode";
 
 import { AwarenessState } from "../../models/AwarenessState.js";
 import { ExtensionState } from "../../state.js";
+import { container, inject } from "tsyringe";
+import { ISessionService } from "../../interfaces/ISessionService.js";
+import { Session } from "../../session/Session.js";
 
 type Node = {
     label: string;
@@ -16,7 +19,10 @@ export class SessionInfoViewProvider implements vscode.TreeDataProvider<Node> {
     private _onDidChangeTreeData = new vscode.EventEmitter<void>();
     readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
-    constructor(private state: ExtensionState) {
+    constructor(
+        private state: ExtensionState,
+        @inject("ISessionService") private sessionService: ISessionService
+    ) {
         state.onDidChange(() => {
             this._onDidChangeTreeData.fire();
         });
@@ -50,9 +56,13 @@ export class SessionInfoViewProvider implements vscode.TreeDataProvider<Node> {
             ];
         }
 
-        if (this.state.session === null) {
+        if (!this.sessionService.hasSession()) {
             return [];
         }
+
+        const session = this.sessionService.get<Session>("Session");
+
+        console.log("test");
 
         return [
             {
@@ -60,30 +70,30 @@ export class SessionInfoViewProvider implements vscode.TreeDataProvider<Node> {
                 children: [
                     {
                         label: "Room Code",
-                        description: this.state.session.roomCode,
+                        description: session.roomCode,
                         command: {
                             command: "devcollab.copyRoomCode",
                             title: "Copy room code",
-                            arguments: [this.state.session.roomCode],
+                            arguments: [session.roomCode],
                         },
                     },
                 ],
             },
             {
                 label: "Participants",
-                children: this.state.session.participants.map((p) => {
-                    const allStates = this.state.session?.awareness.getStates();
+                children: session.participants.map((p) => {
+                    const allStates = session?.awareness.getStates();
                     const participantState = allStates?.get(p.clientId) as
                         | AwarenessState
                         | undefined;
                     const currentFile = participantState?.cursor?.uri;
 
                     const statusLabel =
-                        p.clientId === this.state.session?.awareness.clientID
+                        p.clientId === session?.awareness.clientID
                             ? "You" + (p.type === "Host" ? " (Host)" : "")
                             : p.type === "Host"
-                              ? "Host"
-                              : undefined;
+                                ? "Host"
+                                : undefined;
 
                     const description = currentFile
                         ? statusLabel

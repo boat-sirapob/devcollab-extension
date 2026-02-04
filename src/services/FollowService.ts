@@ -1,10 +1,10 @@
 import { injectable, inject } from "tsyringe";
 import { IFollowService } from "../interfaces/IFollowService.js";
 import { SessionParticipant } from "../../shared/models/SessionParticipant.js";
-import { ISessionService } from "../interfaces/ISessionService.js";
 import { AwarenessState } from "../models/AwarenessState.js";
 import { Awareness } from "y-protocols/awareness.js";
 import * as vscode from "vscode";
+import { Session } from "../session/Session.js";
 
 @injectable()
 export class FollowService implements IFollowService {
@@ -12,24 +12,18 @@ export class FollowService implements IFollowService {
     private editListener: vscode.Disposable | null = null;
     private awarenessListener:
         | ((change: {
-              added: Array<number>;
-              updated: Array<number>;
-              removed: Array<number>;
-          }) => void)
+            added: Array<number>;
+            updated: Array<number>;
+            removed: Array<number>;
+        }) => void)
         | null = null;
 
     constructor(
-        @inject("ISessionService") private sessionService: ISessionService
-    ) {}
+        @inject("Session") private session: Session
+    ) { }
 
     dispose(): void {
-        if (this.session?.awareness) {
-            this.endFollow(this.session.awareness);
-        }
-    }
-
-    get session() {
-        return this.sessionService.getSession();
+        this.endFollow(this.session.awareness);
     }
 
     endFollow(awareness: Awareness): void {
@@ -44,12 +38,7 @@ export class FollowService implements IFollowService {
     }
 
     toggleFollow(participant: SessionParticipant): void {
-        let currentSession = this.session;
-        if (!currentSession) {
-            return;
-        }
-
-        let awareness = currentSession.awareness;
+        let awareness = this.session.awareness;
 
         if (participant.clientId === awareness.clientID) {
             vscode.window.showErrorMessage("You cannot follow yourself.");
@@ -80,8 +69,7 @@ export class FollowService implements IFollowService {
                         this.followingParticipant &&
                         e.contentChanges.length > 0
                     ) {
-                        const documentBindings =
-                            currentSession!.bindings.values();
+                        const documentBindings = this.session.bindings.values();
                         let isRemoteChange = false;
                         for (const binding of documentBindings) {
                             if (binding.applyingRemote) {
@@ -116,12 +104,7 @@ export class FollowService implements IFollowService {
             return;
         }
 
-        const session = this.session;
-        if (!session) {
-            return;
-        }
-
-        const allStates = session.awareness.getStates();
+        const allStates = this.session.awareness.getStates();
 
         for (const [clientId, s] of allStates.entries()) {
             if (clientId !== followingParticipant.clientId) {
@@ -141,7 +124,7 @@ export class FollowService implements IFollowService {
                 return;
             }
 
-            const document = session.getDocumentFromRelPath(cursor.uri);
+            const document = this.session.getDocumentFromRelPath(cursor.uri);
 
             if (!document) {
                 return;

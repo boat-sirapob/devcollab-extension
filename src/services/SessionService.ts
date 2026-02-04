@@ -8,8 +8,10 @@ import { absoluteToRelative, getWorkspaceType } from "../helpers/Utilities.js";
 import { ISessionService } from "../interfaces/ISessionService.js";
 import { Session } from "../session/Session.js";
 import { WorkspaceType } from "../enums/WorkspaceType.js";
-import { injectable, inject } from "tsyringe";
+import { injectable, inject, DependencyContainer, container, InjectionToken } from "tsyringe";
 import { IPersistenceService } from "../interfaces/IPersistenceService.js";
+import { IFollowService } from "../interfaces/IFollowService.js";
+import { FollowService } from "./FollowService.js";
 
 @injectable()
 export class SessionService implements ISessionService {
@@ -18,12 +20,16 @@ export class SessionService implements ISessionService {
     private _onInitialize = new vscode.EventEmitter<void>();
     readonly onBeginSession = this._onInitialize.event;
 
+    private sessionContainer?: DependencyContainer;
+
     loading: boolean;
     session: Session | null;
     tempDir: string | null;
 
     constructor(
-        @inject("ExtensionContext") private context: vscode.ExtensionContext,
+        @inject("ExtensionContext")
+        private context: vscode.ExtensionContext,
+
         @inject("IPersistenceService")
         private persistenceService: IPersistenceService
     ) {
@@ -35,11 +41,36 @@ export class SessionService implements ISessionService {
     dispose(): void {
         this.session?.dispose();
         this.session = null;
+        this.disposeSessionContainer();
         this._onDidChange.fire();
     }
 
-    getSession(): Session | null {
-        return this.session;
+    initializeSessionContainer() {
+        this.sessionContainer = container.createChildContainer();
+        this.sessionContainer.registerInstance<Session>(
+            "Session",
+            this.session!
+        );
+        this.sessionContainer.register<IFollowService>(
+            "IFollowService",
+            FollowService
+        );
+    }
+
+    disposeSessionContainer() {
+        this.sessionContainer?.clearInstances();
+        this.sessionContainer = undefined;
+    }
+
+    get<T>(token: InjectionToken<T>): T {
+        if (!this.sessionContainer) {
+            throw new Error("Session not started");
+        }
+        return this.sessionContainer.resolve<T>(token);
+    }
+
+    hasSession(): boolean {
+        return !!this.sessionContainer;
     }
 
     cleanupOldTempDirs() {
@@ -119,6 +150,7 @@ export class SessionService implements ISessionService {
                         }
 
                         this._onInitialize.fire();
+                        this.initializeSessionContainer();
 
                         vscode.window.showInformationMessage(
                             "Connected to collaboration session"
@@ -173,6 +205,8 @@ export class SessionService implements ISessionService {
             this.session.provider.disconnect();
             this.session.dispose();
         }
+
+        this.disposeSessionContainer();
 
         await this.persistenceService.setPendingSessionState(undefined);
         this.session = null;
@@ -273,6 +307,7 @@ export class SessionService implements ISessionService {
         }
 
         this._onInitialize.fire();
+        this.initializeSessionContainer();
 
         const message = startedForFileName
             ? `Collaboration session started for file ${startedForFileName} with room code: ${this.session.roomCode}`
