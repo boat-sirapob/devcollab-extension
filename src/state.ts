@@ -4,6 +4,7 @@ import { injectable, inject } from "tsyringe";
 import { IFollowService } from "./interfaces/IFollowService.js";
 import { SessionParticipant } from "../shared/models/SessionParticipant.js";
 import { ISessionService } from "./interfaces/ISessionService.js";
+import { IUndoRedoService } from "./interfaces/IUndoRedoService.js";
 
 @injectable()
 export class ExtensionState {
@@ -82,10 +83,22 @@ export class ExtensionState {
     }
 
     handleUndo() {
-        this.sessionService.handleUndo();
+        if (!this.sessionService.hasSession()) {
+            vscode.commands.executeCommand("undo");
+            return;
+        }
+
+        const undoRedoService = this.sessionService.get<IUndoRedoService>("IUndoRedoService");
+        undoRedoService.handleUndo();
     }
 
     handleRedo() {
-        this.sessionService.handleRedo();
+        if (!this.sessionService.hasSession()) {
+            vscode.commands.executeCommand("redo");
+            return;
+        }
+
+        const undoRedoService = this.sessionService.get<IUndoRedoService>("IUndoRedoService");
+        undoRedoService.handleRedo();
     }
 }

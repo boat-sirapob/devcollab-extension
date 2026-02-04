@@ -42,8 +42,6 @@ export function initializeState(context: vscode.ExtensionContext) {
     state.onDidChange(() => {
         const sessionService: ISessionService = container.resolve("ISessionService");
 
-        console.log("state changed, updating context");
-
         vscode.commands.executeCommand(
             "setContext",
             "devcollab.isInSession",

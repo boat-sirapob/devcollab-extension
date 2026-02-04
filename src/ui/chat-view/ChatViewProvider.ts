@@ -1,12 +1,12 @@
 import * as vscode from "vscode";
 
 import { BaseWebviewProvider } from "../webview-base/BaseWebviewProvider.js";
-import { SessionParticipant } from "../../../shared/models/SessionParticipant.js";
 import { inject } from "tsyringe";
 import { ISessionService } from "../../interfaces/ISessionService.js";
 import { WebviewMessageType } from "../../../shared/enums/WebviewMessageType.js";
 import { WebviewMessageBase } from "../../../shared/models/webview-messages/WebviewMessageBase.js";
 import { SendChatEvent } from "../../../shared/models/webview-messages/SendChatEvent.js";
+import { IAwarenessService } from "../../interfaces/IAwarenessService.js";
 
 export class ChatViewProvider extends BaseWebviewProvider {
     viewType = "devcollab.chat";
@@ -22,9 +22,9 @@ export class ChatViewProvider extends BaseWebviewProvider {
     }
 
     handleBeginSession = () => {
-        const session = this.sessionService.session!;
-        const user = session.participants.find(
-            (p) => p.clientId === session.awareness.clientID
+        const awarenessService = this.sessionService.get<IAwarenessService>("IAwarenessService");
+        const user = awarenessService.participants.find(
+            (p) => p.clientId === awarenessService.awareness.clientID
         )!;
 
         this.postMessage({

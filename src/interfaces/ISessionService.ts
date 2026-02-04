@@ -24,7 +24,5 @@ export interface ISessionService {
     closeSession(): Promise<void>;
     disconnectSession(): Promise<void>;
     closeLocalSession(): Promise<void>;
-    handleUndo(): void;
-    handleRedo(): void;
     dispose(): void;
 }

@@ -2,9 +2,10 @@ import * as vscode from "vscode";
 
 import { AwarenessState } from "../../models/AwarenessState.js";
 import { ExtensionState } from "../../state.js";
-import { container, inject } from "tsyringe";
+import { inject } from "tsyringe";
 import { ISessionService } from "../../interfaces/ISessionService.js";
 import { Session } from "../../session/Session.js";
+import { IAwarenessService } from "../../interfaces/IAwarenessService.js";
 
 type Node = {
     label: string;
@@ -61,6 +62,7 @@ export class SessionInfoViewProvider implements vscode.TreeDataProvider<Node> {
         }
 
         const session = this.sessionService.get<Session>("Session");
+        const awarenessService = this.sessionService.get<IAwarenessService>("IAwarenessService");
 
         console.log("test");
 
@@ -81,15 +83,15 @@ export class SessionInfoViewProvider implements vscode.TreeDataProvider<Node> {
             },
             {
                 label: "Participants",
-                children: session.participants.map((p) => {
-                    const allStates = session?.awareness.getStates();
+                children: awarenessService.participants.map((p) => {
+                    const allStates = awarenessService.awareness.getStates();
                     const participantState = allStates?.get(p.clientId) as
                         | AwarenessState
                         | undefined;
                     const currentFile = participantState?.cursor?.uri;
 
                     const statusLabel =
-                        p.clientId === session?.awareness.clientID
+                        p.clientId === awarenessService.awareness.clientID
                             ? "You" + (p.type === "Host" ? " (Host)" : "")
                             : p.type === "Host"
                                 ? "Host"

@@ -2,6 +2,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import * as vscode from "vscode";
+import * as Y from "yjs";
 
 import { absoluteToRelative, getWorkspaceType } from "../helpers/Utilities.js";
 
@@ -12,6 +13,12 @@ import { injectable, inject, DependencyContainer, container, InjectionToken } fr
 import { IPersistenceService } from "../interfaces/IPersistenceService.js";
 import { IFollowService } from "../interfaces/IFollowService.js";
 import { FollowService } from "./FollowService.js";
+import { IChatService } from "../interfaces/IChatService.js";
+import { ChatService } from "./ChatService.js";
+import { IFileSystemService } from "../interfaces/IFileSystemService.js";
+import { FileSystemService } from "./FileSystemService.js";
+import { IAwarenessService } from "../interfaces/IAwarenessService.js";
+import { AwarenessService } from "./AwarenessService.js";
 
 @injectable()
 export class SessionService implements ISessionService {
@@ -39,6 +46,10 @@ export class SessionService implements ISessionService {
     }
 
     dispose(): void {
+        if (this.sessionContainer) {
+            const fileSystemService = this.sessionContainer.resolve<IFileSystemService>("IFileSystemService");
+            fileSystemService.dispose();
+        }
         this.session?.dispose();
         this.session = null;
         this.disposeSessionContainer();
@@ -51,10 +62,55 @@ export class SessionService implements ISessionService {
             "Session",
             this.session!
         );
+        this.sessionContainer.register<IFileSystemService>(
+            "IFileSystemService",
+            FileSystemService
+        );
+        this.sessionContainer.register<IAwarenessService>(
+            "IAwarenessService",
+            AwarenessService
+        );
         this.sessionContainer.register<IFollowService>(
             "IFollowService",
             FollowService
         );
+        this.sessionContainer.register<IChatService>(
+            "IChatService",
+            ChatService
+        );
+    }
+
+    private async initializeSessionServices(username: string, singleFilePath?: string): Promise<void> {
+        const awarenessService = this.sessionContainer!.resolve<IAwarenessService>("IAwarenessService");
+        awarenessService.setupAwareness(
+            () => this._onDidChange.fire(),
+            async () => {
+                if (this.session?.participantType === "Guest") {
+                    await this.disconnectSession();
+                }
+            }
+        );
+        awarenessService.initializeUser(username, this.session!.participantType);
+
+        const fileSystemService = this.sessionContainer!.resolve<IFileSystemService>("IFileSystemService");
+        fileSystemService.setupFileChangeHandling();
+
+        // For hosts, bind initial files
+        if (this.session!.participantType === "Host") {
+            let files;
+            if (singleFilePath) {
+                const rel = absoluteToRelative(singleFilePath, this.session!.rootPath);
+                files = [{ name: path.basename(singleFilePath), path: rel }];
+            } else {
+                files = await fileSystemService.getFiles();
+            }
+
+            for (const file of files) {
+                let yText = new Y.Text();
+                fileSystemService.workspaceMap.set(file.path, yText);
+                await fileSystemService.bindDocument(file.path, yText);
+            }
+        }
     }
 
     disposeSessionContainer() {
@@ -151,6 +207,7 @@ export class SessionService implements ISessionService {
 
                         this._onInitialize.fire();
                         this.initializeSessionContainer();
+                        await this.initializeSessionServices(pendingSession.username);
 
                         vscode.window.showInformationMessage(
                             "Connected to collaboration session"
@@ -204,6 +261,11 @@ export class SessionService implements ISessionService {
         if (this.session) {
             this.session.provider.disconnect();
             this.session.dispose();
+        }
+
+        if (this.sessionContainer) {
+            const fileSystemService = this.sessionContainer.resolve<IFileSystemService>("IFileSystemService");
+            fileSystemService.dispose();
         }
 
         this.disposeSessionContainer();
@@ -308,6 +370,7 @@ export class SessionService implements ISessionService {
 
         this._onInitialize.fire();
         this.initializeSessionContainer();
+        await this.initializeSessionServices(username, singleFilePath);
 
         const message = startedForFileName
             ? `Collaboration session started for file ${startedForFileName} with room code: ${this.session.roomCode}`
@@ -407,47 +470,5 @@ export class SessionService implements ISessionService {
         );
         await this.closeLocalSession();
         await vscode.commands.executeCommand("workbench.action.closeFolder");
-    }
-
-    handleUndo() {
-        const editor = vscode.window.activeTextEditor;
-
-        if (!this.session || !editor) {
-            vscode.commands.executeCommand("undo");
-            return;
-        }
-
-        const relPath = absoluteToRelative(
-            editor.document.uri.fsPath.toString(),
-            this.session.rootPath
-        );
-        const binding = this.session.bindings.get(relPath);
-
-        if (binding?.yUndoManager) {
-            binding.yUndoManager.undo();
-        } else {
-            vscode.commands.executeCommand("undo");
-        }
-    }
-
-    handleRedo() {
-        const editor = vscode.window.activeTextEditor;
-
-        if (!this.session || !editor) {
-            vscode.commands.executeCommand("redo");
-            return;
-        }
-
-        const relPath = absoluteToRelative(
-            editor.document.uri.fsPath.toString(),
-            this.session.rootPath
-        );
-        const binding = this.session.bindings.get(relPath);
-
-        if (binding?.yUndoManager) {
-            binding.yUndoManager.redo();
-        } else {
-            void vscode.commands.executeCommand("redo");
-        }
     }
 }

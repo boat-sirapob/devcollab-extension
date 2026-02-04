@@ -5,6 +5,7 @@ import { AwarenessState } from "../models/AwarenessState.js";
 import { Awareness } from "y-protocols/awareness.js";
 import * as vscode from "vscode";
 import { Session } from "../session/Session.js";
+import { IFileSystemService } from "../interfaces/IFileSystemService.js";
 
 @injectable()
 export class FollowService implements IFollowService {
@@ -19,7 +20,8 @@ export class FollowService implements IFollowService {
         | null = null;
 
     constructor(
-        @inject("Session") private session: Session
+        @inject("Session") private session: Session,
+        @inject("IFileSystemService") private fileSystemService: IFileSystemService
     ) { }
 
     dispose(): void {
@@ -69,7 +71,7 @@ export class FollowService implements IFollowService {
                         this.followingParticipant &&
                         e.contentChanges.length > 0
                     ) {
-                        const documentBindings = this.session.bindings.values();
+                        const documentBindings = this.fileSystemService.bindings.values();
                         let isRemoteChange = false;
                         for (const binding of documentBindings) {
                             if (binding.applyingRemote) {
@@ -124,7 +126,7 @@ export class FollowService implements IFollowService {
                 return;
             }
 
-            const document = this.session.getDocumentFromRelPath(cursor.uri);
+            const document = this.fileSystemService.getDocumentFromRelPath(cursor.uri);
 
             if (!document) {
                 return;
