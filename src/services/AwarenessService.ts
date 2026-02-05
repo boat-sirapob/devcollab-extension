@@ -128,8 +128,16 @@ export class AwarenessService implements IAwarenessService {
                 });
 
                 removed.forEach((id) => {
+                    const existingParticipant = this.participants.find(
+                        (p) => p.clientId === id
+                    );
+
                     this.participants = this.participants.filter(
                         (p) => p.clientId !== id
+                    );
+
+                    vscode.window.showInformationMessage(
+                        `User disconnected: ${existingParticipant?.displayName ?? id}`
                     );
                 });
 
