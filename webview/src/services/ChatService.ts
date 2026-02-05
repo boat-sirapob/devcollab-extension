@@ -29,7 +29,6 @@ export class ChatService implements IChatService {
     }
 
     handleMessageReceived = (event: MessageEvent) => {
-        console.log("5.5 webview chatservice handleMessageReceived received message:", event.data);
         const data: WebviewMessageBase = event.data;
         switch (data.type) {
             case WebviewMessageType.BEGIN_SESSION:
@@ -48,7 +47,6 @@ export class ChatService implements IChatService {
     };
 
     handleUpdateChatHistory(data: UpdateChatHistoryEvent) {
-        console.log("6. webview chatservice handleUpdateChatHistory received update:", data.updated_history);
         this.chatHistory = data.updated_history.map(Mapper.fromChatHistoryItemDto);
         this._onDidChangeHistory.fire([...this.chatHistory]);
     }

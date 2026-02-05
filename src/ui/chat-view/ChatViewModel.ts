@@ -31,8 +31,6 @@ export class ChatViewModel {
 
         // chat updates
         this.chatService.onChatHistoryDidChange(() => {
-            console.log("5. chatviewmodel handleHistoryChange received update");
-
             const m: UpdateChatHistoryEvent = {
                 type: WebviewMessageType.UPDATE_CHAT_HISTORY,
                 updated_history: this.chatService.chatHistory.map(Mapper.toChatHistoryItemDto)
@@ -47,7 +45,6 @@ export class ChatViewModel {
     }
 
     sendChatMessage(message: string): void {
-        console.log("2. chatviewmodel sendChatMessage received message:", message);
         this.chatService.sendChatMessage(message);
     }
 }
