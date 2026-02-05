@@ -19,4 +19,12 @@
             white-space: nowrap;
         }
     }
+
+    &.ownMessage {
+        align-items: flex-end;
+
+        .chatContent {
+            background-color: #424750;
+        }
+    }
 }

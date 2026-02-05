@@ -22,8 +22,6 @@ export class ChatService implements IChatService {
     ) {
         this._chatHistory = this.session.doc.getArray("chat-history");
         this._chatHistory.observe(() => {
-            console.log("4. ext chatservice chathistory observe received update");
-
             this._onChatHistoryDidChange.fire();
         });
     }
@@ -33,9 +31,6 @@ export class ChatService implements IChatService {
     }
 
     sendChatMessage(message: string): void {
-
-        console.log("3. ext chatservice sendChatMessage received message :", message);
-
         const awarenessService = this.awarenessService;
 
         const msg: ChatMessage = {

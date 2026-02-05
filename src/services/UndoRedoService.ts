@@ -1,9 +1,10 @@
 import * as vscode from "vscode";
 
 import { IUndoRedoService } from "../interfaces/IUndoRedoService.js";
-import { inject } from "tsyringe";
+import { inject, injectable } from "tsyringe";
 import { IFileSystemService } from "../interfaces/IFileSystemService.js";
 
+@injectable()
 export class UndoRedoService implements IUndoRedoService {
     constructor(
         @inject("IFileSystemService") private fileSystemService: IFileSystemService,

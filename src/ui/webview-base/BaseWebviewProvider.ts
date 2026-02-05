@@ -9,6 +9,7 @@ import { getNonce } from "../../helpers/Utilities.js";
 export abstract class BaseWebviewProvider
     implements vscode.WebviewViewProvider {
     protected _view?: vscode.WebviewView;
+    private pendingMessages: any[] = [];
 
     abstract viewType: string;
     protected abstract viewParam: string;
@@ -36,6 +37,13 @@ export abstract class BaseWebviewProvider
                 this.onDidReceiveMessage(data);
             }
         });
+
+        if (this.pendingMessages.length > 0) {
+            for (const message of this.pendingMessages) {
+                webviewView.webview.postMessage(message);
+            }
+            this.pendingMessages.length = 0;
+        }
     }
 
     private async handleRequest(message: RequestMessage): Promise<void> {
@@ -67,7 +75,11 @@ export abstract class BaseWebviewProvider
     }
 
     protected postMessage(message: any): void {
-        this._view?.webview.postMessage(message);
+        if (this._view) {
+            this._view.webview.postMessage(message);
+        } else {
+            this.pendingMessages.push(message);
+        }
     }
 
     protected async handleGet(_endpoint: string): Promise<any> {
