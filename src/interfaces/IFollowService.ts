@@ -1,4 +1,4 @@
-import { SessionParticipant } from "../models/SessionParticipant.js";
+import { SessionParticipant } from "../../shared/models/SessionParticipant.js";
 
 export interface IFollowService {
     toggleFollow(participant: SessionParticipant): void;

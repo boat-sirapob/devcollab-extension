@@ -2,12 +2,15 @@ import "reflect-metadata";
 
 import * as vscode from "vscode";
 
-import container, { registerExtensionContext } from "./di/Container.js";
-
+import { ChatViewProvider } from "./ui/chat-view/ChatViewProvider.js";
 import { ExtensionState } from "./state.js";
-import { SessionInfoSidebarProvider } from "./ui/sidebar/SessionInfoSidebarProvider.js";
+import { IPersistenceService } from "./interfaces/IPersistenceService.js";
+import { ISessionService } from "./interfaces/ISessionService.js";
+import { PersistenceService } from "./services/PersistenceService.js";
+import { SessionInfoViewProvider } from "./ui/session-info-view/SessionInfoViewProvider.js";
+import { SessionService } from "./services/SessionService.js";
 import { StatusBarProvider } from "./ui/status-bar/StatusBarProvider.js";
-import { registerServices } from "./di/Container.js";
+import { container } from "tsyringe";
 
 let state: ExtensionState;
 
@@ -15,7 +18,7 @@ export function activate(context: vscode.ExtensionContext) {
     registerServices();
     registerExtensionContext(context);
     initializeState(context);
-    registerSidebar(context);
+    registerViewProviders(context);
     registerCommands(context);
     registerStatusBar(context);
 }
@@ -38,19 +41,40 @@ export function initializeState(context: vscode.ExtensionContext) {
     );
 
     state.onDidChange(() => {
+        const sessionService: ISessionService = container.resolve("ISessionService");
+
         vscode.commands.executeCommand(
             "setContext",
             "devcollab.isInSession",
-            state.session !== null
+            sessionService.hasSession()
         );
     }, context.subscriptions);
 }
 
-export function registerSidebar(context: vscode.ExtensionContext) {
-    const sidebarProvider = new SessionInfoSidebarProvider(state);
-    vscode.window.createTreeView("devcollab", {
+export function registerViewProviders(context: vscode.ExtensionContext) {
+    container.registerSingleton<SessionInfoViewProvider>(
+        "SessionInfoViewProvider",
+        SessionInfoViewProvider
+    );
+    const sidebarProvider = container.resolve<SessionInfoViewProvider>("SessionInfoViewProvider");
+    vscode.window.createTreeView(sidebarProvider.viewType, {
         treeDataProvider: sidebarProvider,
     });
+
+    container.registerSingleton<ChatViewProvider>(
+        "ChatViewProvider",
+        ChatViewProvider
+    );
+    const chatProvider = container.resolve<ChatViewProvider>("ChatViewProvider");
+    vscode.window.registerWebviewViewProvider(
+        chatProvider.viewType,
+        chatProvider,
+        {
+            webviewOptions: {
+                retainContextWhenHidden: true,
+            },
+        }
+    );
 }
 
 export function registerCommands(context: vscode.ExtensionContext) {
@@ -100,8 +124,29 @@ export function registerCommands(context: vscode.ExtensionContext) {
 }
 
 export function registerStatusBar(context: vscode.ExtensionContext) {
-    const statusBarProvider = new StatusBarProvider(state);
+    const sessionService: ISessionService = container.resolve("ISessionService");
+
+    const statusBarProvider = new StatusBarProvider(state, sessionService);
     context.subscriptions.push(statusBarProvider.getStatusBarItem());
+}
+
+export function registerExtensionContext(context: vscode.ExtensionContext) {
+    container.registerInstance<vscode.ExtensionContext>(
+        "ExtensionContext",
+        context
+    );
+}
+
+export function registerServices() {
+    container.registerSingleton<ISessionService>(
+        "ISessionService",
+        SessionService
+    );
+    container.registerSingleton<IPersistenceService>(
+        "IPersistenceService",
+        PersistenceService
+    );
+    container.registerSingleton(ExtensionState);
 }
 
 export function deactivate() {

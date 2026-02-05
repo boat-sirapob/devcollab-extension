@@ -238,8 +238,14 @@ export class DocumentBinding {
                             before: {
                                 backgroundColor: `${user.color}`,
                                 contentText: user.displayName,
-                                textDecoration:
-                                    "none; position: absolute; top: var(--vscode-editorCodeLens-lineHeight); padding: 2px; color: black;",
+                                textDecoration: "none;" + `
+                                    position: absolute;
+                                    top: var(--vscode-editorCodeLens-lineHeight);
+                                    padding: 2px;
+                                    color: black;
+                                    z-index: 10;
+                                    border-radius: 0 4px 4px 4px;
+                                `,
                             },
                             borderColor: user.color,
                             borderWidth: "1px",

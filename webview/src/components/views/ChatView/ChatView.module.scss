@@ -1,0 +1,19 @@
+.container {
+    display: flex;
+    flex-direction: column;
+    padding: 20px 0;
+    gap: 20px;
+    height: 100%;
+
+    .chatList {
+        flex: 1;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    vscode-textarea {
+        width: 100%;
+    }
+}

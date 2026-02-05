@@ -2,26 +2,48 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import * as vscode from "vscode";
+import * as Y from "yjs";
 
 import { absoluteToRelative, getWorkspaceType } from "../helpers/Utilities.js";
 
 import { ISessionService } from "../interfaces/ISessionService.js";
 import { Session } from "../session/Session.js";
 import { WorkspaceType } from "../enums/WorkspaceType.js";
-import { injectable, inject } from "tsyringe";
+import { injectable, inject, DependencyContainer, container, InjectionToken } from "tsyringe";
 import { IPersistenceService } from "../interfaces/IPersistenceService.js";
+import { IFollowService } from "../interfaces/IFollowService.js";
+import { FollowService } from "./FollowService.js";
+import { IChatService } from "../interfaces/IChatService.js";
+import { ChatService } from "./ChatService.js";
+import { IFileSystemService } from "../interfaces/IFileSystemService.js";
+import { FileSystemService } from "./FileSystemService.js";
+import { IAwarenessService } from "../interfaces/IAwarenessService.js";
+import { AwarenessService } from "./AwarenessService.js";
+import { SessionInfoViewModel } from "../ui/session-info-view/SessionInfoViewModel.js";
+import { ChatViewModel } from "../ui/chat-view/ChatViewModel.js";
+import { SessionInfo } from "../session/SessionInfo.js";
 
 @injectable()
 export class SessionService implements ISessionService {
     private _onDidChange = new vscode.EventEmitter<void>();
     readonly onDidChange = this._onDidChange.event;
 
+    private _onBeginSession = new vscode.EventEmitter<void>();
+    readonly onBeginSession = this._onBeginSession.event;
+
+    private _onEndSession = new vscode.EventEmitter<void>();
+    readonly onEndSession = this._onEndSession.event;
+
+    private sessionContainer?: DependencyContainer;
+
     loading: boolean;
     session: Session | null;
     tempDir: string | null;
 
     constructor(
-        @inject("ExtensionContext") private context: vscode.ExtensionContext,
+        @inject("ExtensionContext")
+        private context: vscode.ExtensionContext,
+
         @inject("IPersistenceService")
         private persistenceService: IPersistenceService
     ) {
@@ -31,13 +53,104 @@ export class SessionService implements ISessionService {
     }
 
     dispose(): void {
+        if (this.sessionContainer) {
+            const fileSystemService = this.sessionContainer.resolve<IFileSystemService>("IFileSystemService");
+            fileSystemService.dispose();
+        }
         this.session?.dispose();
         this.session = null;
+        this.disposeSessionContainer();
         this._onDidChange.fire();
+        this._onEndSession.fire();
     }
 
-    getSession(): Session | null {
-        return this.session;
+    initializeSessionContainer(sessionInfo: SessionInfo) {
+        this.sessionContainer = container.createChildContainer();
+
+
+        this.sessionContainer.registerInstance<Session>(
+            "Session",
+            this.session!
+        );
+        this.sessionContainer.registerInstance<SessionInfo>("SessionInfo", sessionInfo);
+
+        // initialize services
+        this.sessionContainer.registerSingleton<IFileSystemService>(
+            "IFileSystemService",
+            FileSystemService
+        );
+        this.sessionContainer.registerSingleton<IAwarenessService>(
+            "IAwarenessService",
+            AwarenessService
+        );
+        this.sessionContainer.registerSingleton<IFollowService>(
+            "IFollowService",
+            FollowService
+        );
+        this.sessionContainer.registerSingleton<IChatService>(
+            "IChatService",
+            ChatService
+        );
+
+        // initialize viewmodels
+        this.sessionContainer.registerSingleton<SessionInfoViewModel>(
+            "SessionInfoViewModel",
+            SessionInfoViewModel
+        );
+        this.sessionContainer.registerSingleton<ChatViewModel>(
+            "ChatViewModel",
+            ChatViewModel
+        );
+    }
+
+    private async initializeSessionServices(username: string, singleFilePath?: string): Promise<void> {
+        const awarenessService = this.sessionContainer!.resolve<IAwarenessService>("IAwarenessService");
+        awarenessService.onParticipantsDidChange(() => {
+            this._onDidChange.fire();
+        });
+        awarenessService.onParticipantDisconnect(
+            async () => {
+                if (this.session?.participantType === "Guest") {
+                    await this.disconnectSession();
+                }
+            }
+        );
+
+        const fileSystemService = this.sessionContainer!.resolve<IFileSystemService>("IFileSystemService");
+        fileSystemService.setupFileChangeHandling();
+
+        // For hosts, bind initial files
+        if (this.session!.participantType === "Host") {
+            let files;
+            if (singleFilePath) {
+                const rel = absoluteToRelative(singleFilePath, this.session!.rootPath);
+                files = [{ name: path.basename(singleFilePath), path: rel }];
+            } else {
+                files = await fileSystemService.getFiles();
+            }
+
+            for (const file of files) {
+                let yText = new Y.Text();
+                fileSystemService.workspaceMap.set(file.path, yText);
+                await fileSystemService.bindDocument(file.path, yText);
+            }
+        }
+    }
+
+    disposeSessionContainer() {
+        this.sessionContainer?.clearInstances();
+        this.sessionContainer = undefined;
+    }
+
+    get<T>(token: InjectionToken<T>): T {
+        if (!this.sessionContainer) {
+            throw new Error("Session not started");
+        }
+        return this.sessionContainer.resolve<T>(token);
+    }
+
+    hasSession(): boolean {
+        return !!this.sessionContainer;
     }
 
     cleanupOldTempDirs() {
@@ -116,6 +229,16 @@ export class SessionService implements ISessionService {
                             return;
                         }
 
+                        const sessionInfo: SessionInfo = {
+                            username: pendingSession.username,
+                            participantType: this.session!.participantType
+                        };
+
+                        this.initializeSessionContainer(sessionInfo);
+                        await this.initializeSessionServices(pendingSession.username);
+                        this._onDidChange.fire();
+                        this._onBeginSession.fire();
+
                         vscode.window.showInformationMessage(
                             "Connected to collaboration session"
                         );
@@ -170,9 +293,17 @@ export class SessionService implements ISessionService {
             this.session.dispose();
         }
 
+        if (this.sessionContainer) {
+            const fileSystemService = this.sessionContainer.resolve<IFileSystemService>("IFileSystemService");
+            fileSystemService.dispose();
+        }
+
+        this.disposeSessionContainer();
+
         await this.persistenceService.setPendingSessionState(undefined);
         this.session = null;
         this._onDidChange.fire();
+        this._onEndSession.fire();
     }
 
     // https://stackblitz.com/edit/y-quill-doc-list?file=index.ts
@@ -267,6 +398,16 @@ export class SessionService implements ISessionService {
         if (this.session === null) {
             return;
         }
+
+        const sessionInfo: SessionInfo = {
+            username,
+            participantType: this.session.participantType
+        };
+
+        this.initializeSessionContainer(sessionInfo);
+        await this.initializeSessionServices(username, singleFilePath);
+        this._onDidChange.fire();
+        this._onBeginSession.fire();
 
         const message = startedForFileName
             ? `Collaboration session started for file ${startedForFileName} with room code: ${this.session.roomCode}`
@@ -366,47 +507,5 @@ export class SessionService implements ISessionService {
         );
         await this.closeLocalSession();
         await vscode.commands.executeCommand("workbench.action.closeFolder");
-    }
-
-    handleUndo() {
-        const editor = vscode.window.activeTextEditor;
-
-        if (!this.session || !editor) {
-            vscode.commands.executeCommand("undo");
-            return;
-        }
-
-        const relPath = absoluteToRelative(
-            editor.document.uri.fsPath.toString(),
-            this.session.rootPath
-        );
-        const binding = this.session.bindings.get(relPath);
-
-        if (binding?.yUndoManager) {
-            binding.yUndoManager.undo();
-        } else {
-            vscode.commands.executeCommand("undo");
-        }
-    }
-
-    handleRedo() {
-        const editor = vscode.window.activeTextEditor;
-
-        if (!this.session || !editor) {
-            vscode.commands.executeCommand("redo");
-            return;
-        }
-
-        const relPath = absoluteToRelative(
-            editor.document.uri.fsPath.toString(),
-            this.session.rootPath
-        );
-        const binding = this.session.bindings.get(relPath);
-
-        if (binding?.yUndoManager) {
-            binding.yUndoManager.redo();
-        } else {
-            void vscode.commands.executeCommand("redo");
-        }
     }
 }
