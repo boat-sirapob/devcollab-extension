@@ -1,5 +1,5 @@
-import "./index.css";
 import "reflect-metadata";
+import "./index.css";
 
 import App from "./App.tsx";
 import { ChatService } from "./services/ChatService.ts";
