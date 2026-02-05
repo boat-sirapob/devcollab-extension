@@ -22,6 +22,8 @@ import { AwarenessService } from "./AwarenessService.js";
 import { SessionInfoViewModel } from "../ui/session-info-view/SessionInfoViewModel.js";
 import { ChatViewModel } from "../ui/chat-view/ChatViewModel.js";
 import { SessionInfo } from "../session/SessionInfo.js";
+import { UndoRedoService } from "./UndoRedoService.js";
+import { IUndoRedoService } from "../interfaces/IUndoRedoService.js";
 
 @injectable()
 export class SessionService implements ISessionService {
@@ -90,6 +92,10 @@ export class SessionService implements ISessionService {
         this.sessionContainer.registerSingleton<IChatService>(
             "IChatService",
             ChatService
+        );
+        this.sessionContainer.registerSingleton<IUndoRedoService>(
+            "IUndoRedoService",
+            UndoRedoService
         );
 
         // initialize viewmodels
