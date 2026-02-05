@@ -19,6 +19,12 @@ jobs:
           node-version: 24
           cache: "yarn"
 
+      - name: Install webview dependencies
+        run: yarn --cwd webview install --frozen-lockfile
+        
+      - name: Build Webview
+        run: yarn webview:build
+        
       - name: Install dependencies
         run: yarn install --frozen-lockfile
 
