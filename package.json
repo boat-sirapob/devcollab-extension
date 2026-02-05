@@ -46,7 +46,8 @@
                     "type": "webview",
                     "id": "devcollab.chat",
                     "name": "Chat",
-                    "icon": "media/chat.svg"
+                    "icon": "media/chat.svg",
+                    "when": "devcollab.isInSession"
                 }
             ]
         },
@@ -54,7 +55,7 @@
             "view/title": [
                 {
                     "command": "devcollab.endSession",
-                    "when": "devcollab.isInSession",
+                    "when": "devcollab.isInSession && view == devcollab.main",
                     "group": "navigation"
                 }
             ]
