@@ -34,7 +34,8 @@ export class StatusBarProvider {
             this.statusBarItem.tooltip = "DevCollab - Not in a session";
             this.statusBarItem.backgroundColor = undefined;
             this.statusBarItem.command = undefined;
-            return
+            this.statusBarItem.show();
+            return;
         }
 
         const session = this.sessionService.get<Session>("Session");
