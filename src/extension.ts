@@ -68,7 +68,12 @@ export function registerViewProviders(context: vscode.ExtensionContext) {
     const chatProvider = container.resolve<ChatViewProvider>("ChatViewProvider");
     vscode.window.registerWebviewViewProvider(
         chatProvider.viewType,
-        chatProvider
+        chatProvider,
+        {
+            webviewOptions: {
+                retainContextWhenHidden: true,
+            },
+        }
     );
 }
 
