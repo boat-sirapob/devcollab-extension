@@ -5,9 +5,10 @@ import { IAwarenessService } from "../interfaces/IAwarenessService.js";
 import { SessionParticipant } from "../../shared/models/SessionParticipant.js";
 import { SessionParticipantDto } from "../dto/SessionParticipantDto.js";
 import { ParticipantType } from "../enums/ParticipantType.js";
-import { Mapper } from "../helpers/Mapper.js";
+import { Mapper } from "../../shared/helpers/Mapper.js";
 import { Session } from "../session/Session.js";
 import { AwarenessState } from "../models/AwarenessState.js";
+import { SessionInfo } from "../session/SessionInfo.js";
 
 const usercolors = [
     "#30bced",
@@ -24,9 +25,33 @@ const usercolors = [
 export class AwarenessService implements IAwarenessService {
     participants: SessionParticipant[] = [];
     awareness: Awareness;
+    private _currentUser: SessionParticipant;
 
-    constructor(@inject("Session") private session: Session) {
+    private _onParticipantsDidChange = new vscode.EventEmitter<void>();
+    readonly onParticipantsDidChange = this._onParticipantsDidChange.event;
+
+    private _onParticipantDisconnect = new vscode.EventEmitter<void>();
+    readonly onParticipantDisconnect = this._onParticipantDisconnect.event;
+
+    constructor(
+        @inject("SessionInfo") private sessionInfo: SessionInfo,
+        @inject("Session") private session: Session
+    ) {
         this.awareness = session.awareness;
+
+        this._currentUser = this.createCurrentUser(
+            this.sessionInfo.username,
+            this.sessionInfo.participantType
+        );
+
+        this.upsertParticipant(this._currentUser);
+        this.publishCurrentUser();
+
+        this.setupAwareness();
+    }
+
+    get currentUser(): SessionParticipant {
+        return this._currentUser;
     }
 
     private upsertParticipant(participant: SessionParticipant): void {
@@ -40,7 +65,7 @@ export class AwarenessService implements IAwarenessService {
         }
     }
 
-    setupAwareness(onUpdate: () => void, onHostDisconnect?: () => void): void {
+    setupAwareness(): void {
         const syncParticipantsFromStates = () => {
             const allStates = this.awareness.getStates();
             for (const [id, state] of allStates) {
@@ -55,7 +80,7 @@ export class AwarenessService implements IAwarenessService {
         };
 
         syncParticipantsFromStates();
-        onUpdate();
+        this._onParticipantsDidChange.fire();
 
         this.awareness.on(
             "change",
@@ -86,7 +111,6 @@ export class AwarenessService implements IAwarenessService {
                         id
                     );
                     this.upsertParticipant(sessionUser);
-                    onUpdate();
                 });
 
                 updated.forEach((id) => {
@@ -107,11 +131,10 @@ export class AwarenessService implements IAwarenessService {
                     this.participants = this.participants.filter(
                         (p) => p.clientId !== id
                     );
-                    onUpdate();
                 });
 
-                if (updated.length > 0) {
-                    onUpdate();
+                if (updated.length > 0 || added.length > 0 || removed.length > 0) {
+                    this._onParticipantsDidChange.fire();
                 }
 
                 // todo: make this a message from the server
@@ -130,25 +153,26 @@ export class AwarenessService implements IAwarenessService {
                         "Host has ended the session. Disconnecting..."
                     );
                     this.session.provider.disconnect();
-                    onHostDisconnect?.();
+                    this._onParticipantDisconnect.fire();
                 }
             }
         );
     }
 
-    initializeUser(username: string, userType: ParticipantType): void {
-        let userColor =
-            usercolors[Math.floor(Math.random() * usercolors.length)];
-        let user: SessionParticipant = {
+    private createCurrentUser(
+        username: string,
+        userType: ParticipantType
+    ): SessionParticipant {
+        return {
             clientId: this.awareness.clientID,
             displayName: username,
-            color: userColor,
-            type: userType,
+            color: usercolors[Math.floor(Math.random() * usercolors.length)],
+            type: userType
         };
+    }
 
-        this.upsertParticipant(user);
-
-        let awarenessUser = Mapper.toSessionParticipantDto(user);
+    private publishCurrentUser(): void {
+        const awarenessUser = Mapper.toSessionParticipantDto(this._currentUser);
         this.awareness.setLocalStateField("user", awarenessUser);
     }
 

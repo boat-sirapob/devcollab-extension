@@ -2,14 +2,15 @@ import "reflect-metadata";
 
 import * as vscode from "vscode";
 
-import container, { registerExtensionContext } from "./di/Container.js";
-
 import { ChatViewProvider } from "./ui/chat-view/ChatViewProvider.js";
 import { ExtensionState } from "./state.js";
+import { IPersistenceService } from "./interfaces/IPersistenceService.js";
 import { ISessionService } from "./interfaces/ISessionService.js";
+import { PersistenceService } from "./services/PersistenceService.js";
 import { SessionInfoViewProvider } from "./ui/session-info-view/SessionInfoViewProvider.js";
+import { SessionService } from "./services/SessionService.js";
 import { StatusBarProvider } from "./ui/status-bar/StatusBarProvider.js";
-import { registerServices } from "./di/Container.js";
+import { container } from "tsyringe";
 
 let state: ExtensionState;
 
@@ -51,17 +52,20 @@ export function initializeState(context: vscode.ExtensionContext) {
 }
 
 export function registerViewProviders(context: vscode.ExtensionContext) {
-    const sessionService: ISessionService = container.resolve("ISessionService");
-
-    const sidebarProvider = new SessionInfoViewProvider(state, sessionService);
+    container.registerSingleton<SessionInfoViewProvider>(
+        "SessionInfoViewProvider",
+        SessionInfoViewProvider
+    );
+    const sidebarProvider = container.resolve<SessionInfoViewProvider>("SessionInfoViewProvider");
     vscode.window.createTreeView(sidebarProvider.viewType, {
         treeDataProvider: sidebarProvider,
     });
 
-    const chatProvider = new ChatViewProvider(
-        sessionService,
-        context.extensionUri
+    container.registerSingleton<ChatViewProvider>(
+        "ChatViewProvider",
+        ChatViewProvider
     );
+    const chatProvider = container.resolve<ChatViewProvider>("ChatViewProvider");
     vscode.window.registerWebviewViewProvider(
         chatProvider.viewType,
         chatProvider
@@ -119,6 +123,25 @@ export function registerStatusBar(context: vscode.ExtensionContext) {
 
     const statusBarProvider = new StatusBarProvider(state, sessionService);
     context.subscriptions.push(statusBarProvider.getStatusBarItem());
+}
+
+export function registerExtensionContext(context: vscode.ExtensionContext) {
+    container.registerInstance<vscode.ExtensionContext>(
+        "ExtensionContext",
+        context
+    );
+}
+
+export function registerServices() {
+    container.registerSingleton<ISessionService>(
+        "ISessionService",
+        SessionService
+    );
+    container.registerSingleton<IPersistenceService>(
+        "IPersistenceService",
+        PersistenceService
+    );
+    container.registerSingleton(ExtensionState);
 }
 
 export function deactivate() {

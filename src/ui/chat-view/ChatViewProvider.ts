@@ -1,47 +1,48 @@
 import * as vscode from "vscode";
-
+import { inject, injectable } from "tsyringe";
 import { BaseWebviewProvider } from "../webview-base/BaseWebviewProvider.js";
-import { inject } from "tsyringe";
+import { ChatViewModel } from "./ChatViewModel.js";
 import { ISessionService } from "../../interfaces/ISessionService.js";
-import { WebviewMessageType } from "../../../shared/enums/WebviewMessageType.js";
 import { WebviewMessageBase } from "../../../shared/models/webview-messages/WebviewMessageBase.js";
+import { WebviewMessageType } from "../../../shared/enums/WebviewMessageType.js";
 import { SendChatEvent } from "../../../shared/models/webview-messages/SendChatEvent.js";
-import { IAwarenessService } from "../../interfaces/IAwarenessService.js";
 
+@injectable()
 export class ChatViewProvider extends BaseWebviewProvider {
     viewType = "devcollab.chat";
     protected viewParam = "chat";
 
+    private viewModel?: ChatViewModel;
+
     constructor(
         @inject("ISessionService") private sessionService: ISessionService,
-        extensionUri: vscode.Uri
+        @inject("ExtensionContext") extensionContext: vscode.ExtensionContext,
     ) {
-        super(extensionUri);
+        super(extensionContext.extensionUri);
 
-        sessionService.onBeginSession(this.handleBeginSession);
+        this.sessionService.onBeginSession(this.bindSession);
+        this.sessionService.onEndSession(this.unbindSession);
     }
 
-    handleBeginSession = () => {
-        const awarenessService = this.sessionService.get<IAwarenessService>("IAwarenessService");
-        const user = awarenessService.participants.find(
-            (p) => p.clientId === awarenessService.awareness.clientID
-        )!;
+    bindSession = () => {
+        this.viewModel = this.sessionService.get(ChatViewModel);
+        this.viewModel.bind(msg => this.postMessage(msg));
+    }
 
-        this.postMessage({
-            type: WebviewMessageType.BEGIN_SESSION,
-            user: user,
-        });
-    };
+    unbindSession = () => {
+        this.viewModel?.unbind();
+        this.viewModel = undefined;
+    }
 
     protected override onDidReceiveMessage(data: WebviewMessageBase): void {
+        if (!this.viewModel) return;
+
         switch (data.type) {
             case WebviewMessageType.CHAT_MESSAGE:
-                this.handleSendChatMessage(data as SendChatEvent);
+                this.viewModel.sendChatMessage(
+                    (data as SendChatEvent).message
+                );
                 break;
         }
-    }
-
-    private handleSendChatMessage(data: SendChatEvent): void {
-        console.log("test");
     }
 }

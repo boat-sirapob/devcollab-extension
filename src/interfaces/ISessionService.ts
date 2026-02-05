@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 
 import { InjectionToken } from "tsyringe";
 import { Session } from "../session/Session.js";
+import { SessionInfo } from "../session/SessionInfo.js";
 
 export interface ISessionService {
     session: Session | null;
@@ -9,8 +10,9 @@ export interface ISessionService {
     tempDir: string | null;
     onDidChange: vscode.Event<void>;
     onBeginSession: vscode.Event<void>;
+    onEndSession: vscode.Event<void>;
 
-    initializeSessionContainer(): void;
+    initializeSessionContainer(sessionInfo: SessionInfo): void;
     disposeSessionContainer(): void;
     get<T>(token: InjectionToken<T>): T;
     hasSession(): boolean;

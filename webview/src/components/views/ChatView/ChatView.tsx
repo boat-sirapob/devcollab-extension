@@ -1,45 +1,29 @@
-import {
-    ChatHistoryItemType,
-    ChatTimelineItemType,
-    type ChatHistoryTimelineItem,
-    type ChatMessage,
-} from "../../../models/ChatHistoryItem";
-import { VscodeTextarea } from "@vscode-elements/react-elements";
-import { useEffect, useRef } from "react";
+import { ChatHistoryItem, ChatHistoryItemType, ChatHistoryTimelineItem, ChatMessage } from "../../../../../shared/models/ChatHistoryItem";
+import { useEffect, useRef, useState } from "react";
 
 import ChatMessageItem from "../../common/ChatMessageItem/ChatMessageItem";
+import ChatTimelineItem from "../../common/ChatTimelineItem/ChatTimelineItem";
+import { VscodeTextarea } from "@vscode-elements/react-elements";
 import { VscodeTextarea as VscodeTextareaType } from "@vscode-elements/elements/dist/vscode-textarea/vscode-textarea.js";
 import styles from "./ChatView.module.scss";
-import ChatTimelineItem from "../../common/ChatTimelineItem/ChatTimelineItem";
 import { useChatService } from "../../../services/ChatService";
 
 function ChatView() {
     const chatService = useChatService();
     const messageInputRef = useRef<VscodeTextareaType>(null);
+    const [chatItems, setChatItems] = useState<ChatHistoryItem[]>([]);
 
-    const chatItems: (ChatMessage | ChatHistoryTimelineItem)[] = [
-        {
-            type: ChatHistoryItemType.MESSAGE,
-            id: "1",
-            sender: "user",
-            content: "Hello, how are you?",
-            timestamp: new Date(),
-        },
-        // {
-        //     type: ChatHistoryItemType.TIMELINE,
-        //     id: "2",
-        //     timestamp: new Date(),
-        //     timelineType: ChatTimelineItemType.START_SESSION,
-        //     user: "user1",
-        // },
-        // {
-        //     type: ChatHistoryItemType.MESSAGE,
-        //     id: "3",
-        //     sender: "bot",
-        //     content: "I'm fine, thank you! How can I assist you today?",
-        //     timestamp: new Date(),
-        // },
-    ];
+    useEffect(() => {
+        setChatItems(chatService.getChatHistory());
+
+        const disposable = chatService.onDidChangeHistory((updatedHistory) => {
+            setChatItems(updatedHistory);
+        });
+
+        return () => {
+            disposable.dispose();
+        };
+    }, [chatService]);
 
     useEffect(() => {
         const textareaElement = messageInputRef.current;
@@ -63,25 +47,31 @@ function ChatView() {
     return (
         <div className={styles.container}>
             <div className={styles.chatList}>
-                {chatItems.map((item) => {
-                    if (item.type === ChatHistoryItemType.MESSAGE) {
-                        let chatMessage = item as ChatMessage;
-                        return (
-                            <ChatMessageItem
-                                key={chatMessage.id}
-                                value={chatMessage}
-                            />
-                        );
-                    } else if (item.type === ChatHistoryItemType.TIMELINE) {
-                        let timelineItem = item as ChatHistoryTimelineItem;
-                        return (
-                            <ChatTimelineItem
-                                key={timelineItem.id}
-                                value={timelineItem}
-                            />
-                        );
-                    }
-                })}
+                {
+                    chatItems.length === 0 ?
+                        <div className={styles.emptyState}>
+                            No messages yet. Start the conversation!
+                        </div>
+                        : chatItems.map((item) => {
+                            if (item.type === ChatHistoryItemType.MESSAGE) {
+                                let chatMessage = item as ChatMessage;
+                                return (
+                                    <ChatMessageItem
+                                        key={chatMessage.id}
+                                        value={chatMessage}
+                                    />
+                                );
+                            } else if (item.type === ChatHistoryItemType.TIMELINE) {
+                                let timelineItem = item as ChatHistoryTimelineItem;
+                                return (
+                                    <ChatTimelineItem
+                                        key={timelineItem.id}
+                                        value={timelineItem}
+                                    />
+                                );
+                            }
+                        })
+                }
             </div>
             <VscodeTextarea
                 placeholder="Type a message"

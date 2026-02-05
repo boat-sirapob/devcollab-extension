@@ -1,3 +1,5 @@
+import { SessionParticipant } from "./SessionParticipant.js";
+
 export enum ChatHistoryItemType {
     MESSAGE = "message",
     TIMELINE = "timeline",
@@ -11,7 +13,8 @@ export interface ChatHistoryItemBase {
 export interface ChatMessage extends ChatHistoryItemBase {
     type: ChatHistoryItemType.MESSAGE;
     id: string;
-    sender: string;
+    senderId: number;
+    displayName: string;
     content: string;
     timestamp: Date;
 }
@@ -50,3 +53,5 @@ export type ChatHistoryTimelineItem =
     | ChatTimelineStartSession
     | ChatTimelineJoinSession
     | ChatTimelineLeaveSession;
+
+export type ChatHistoryItem = ChatMessage | ChatHistoryTimelineItem;

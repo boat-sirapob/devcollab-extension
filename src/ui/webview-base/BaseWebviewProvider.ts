@@ -7,14 +7,13 @@ import { WebviewMessageType } from "../../../shared/enums/WebviewMessageType.js"
 import { getNonce } from "../../helpers/Utilities.js";
 
 export abstract class BaseWebviewProvider
-    implements vscode.WebviewViewProvider
-{
+    implements vscode.WebviewViewProvider {
     protected _view?: vscode.WebviewView;
 
     abstract viewType: string;
     protected abstract viewParam: string;
 
-    constructor(protected readonly _extensionUri: vscode.Uri) {}
+    constructor(protected readonly _extensionUri: vscode.Uri) { }
 
     public resolveWebviewView(
         webviewView: vscode.WebviewView,

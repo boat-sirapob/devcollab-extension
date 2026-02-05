@@ -2,10 +2,11 @@ import * as vscode from "vscode";
 
 import { AwarenessState } from "../../models/AwarenessState.js";
 import { ExtensionState } from "../../state.js";
-import { inject } from "tsyringe";
+import { inject, injectable } from "tsyringe";
 import { ISessionService } from "../../interfaces/ISessionService.js";
 import { Session } from "../../session/Session.js";
 import { IAwarenessService } from "../../interfaces/IAwarenessService.js";
+import { SessionInfoViewModel } from "./SessionInfoViewModel.js";
 
 type Node = {
     label: string;
@@ -14,11 +15,14 @@ type Node = {
     command?: { command: string; title: string; arguments?: any[] };
 };
 
+@injectable()
 export class SessionInfoViewProvider implements vscode.TreeDataProvider<Node> {
     public readonly viewType = "devcollab.main";
 
     private _onDidChangeTreeData = new vscode.EventEmitter<void>();
     readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
+
+    private viewModel?: SessionInfoViewModel;
 
     constructor(
         private state: ExtensionState,
@@ -27,6 +31,23 @@ export class SessionInfoViewProvider implements vscode.TreeDataProvider<Node> {
         state.onDidChange(() => {
             this._onDidChangeTreeData.fire();
         });
+
+        this.sessionService.onBeginSession(this.onSessionStarted)
+        this.sessionService.onEndSession(this.onSessionEnded)
+    }
+
+    refresh() {
+        this._onDidChangeTreeData.fire();
+    }
+
+    onSessionStarted = () => {
+        this.viewModel = this.sessionService.get<SessionInfoViewModel>("SessionInfoViewModel");
+        this.refresh();
+    }
+
+    onSessionEnded = () => {
+        this.viewModel = undefined;
+        this.refresh();
     }
 
     getTreeItem(node: Node): vscode.TreeItem {
@@ -57,61 +78,12 @@ export class SessionInfoViewProvider implements vscode.TreeDataProvider<Node> {
             ];
         }
 
-        if (!this.sessionService.hasSession()) {
+        // no session
+        if (!this.viewModel) {
             return [];
         }
 
-        const session = this.sessionService.get<Session>("Session");
-        const awarenessService = this.sessionService.get<IAwarenessService>("IAwarenessService");
-
-        return [
-            {
-                label: "Session Info",
-                children: [
-                    {
-                        label: "Room Code",
-                        description: session.roomCode,
-                        command: {
-                            command: "devcollab.copyRoomCode",
-                            title: "Copy room code",
-                            arguments: [session.roomCode],
-                        },
-                    },
-                ],
-            },
-            {
-                label: "Participants",
-                children: awarenessService.participants.map((p) => {
-                    const allStates = awarenessService.awareness.getStates();
-                    const participantState = allStates?.get(p.clientId) as
-                        | AwarenessState
-                        | undefined;
-                    const currentFile = participantState?.cursor?.uri;
-
-                    const statusLabel =
-                        p.clientId === awarenessService.awareness.clientID
-                            ? "You" + (p.type === "Host" ? " (Host)" : "")
-                            : p.type === "Host"
-                                ? "Host"
-                                : undefined;
-
-                    const description = currentFile
-                        ? statusLabel
-                            ? `${statusLabel} - ${currentFile}`
-                            : currentFile
-                        : statusLabel;
-
-                    return {
-                        label: p.displayName,
-                        description: description,
-                        command: {
-                            command: "devcollab.toggleFollow",
-                            title: `Follow ${p.displayName}`,
-                            arguments: [p],
-                        },
-                    };
-                }),
-            },
-        ];
+        // in session
+        return this.viewModel.getChildrenWithSession();
     }
 }

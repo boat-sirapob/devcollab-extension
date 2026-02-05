@@ -1,7 +1,5 @@
-import {
-    ChatTimelineItemType,
-    type ChatHistoryTimelineItem,
-} from "../../../models/ChatHistoryItem";
+import { ChatHistoryTimelineItem, ChatTimelineItemType } from "../../../../../shared/models/ChatHistoryItem";
+
 import styles from "./ChatTimelineItem.module.scss";
 
 function ChatTimelineItem({ value }: { value: ChatHistoryTimelineItem }) {

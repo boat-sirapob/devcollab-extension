@@ -19,13 +19,20 @@ import { IFileSystemService } from "../interfaces/IFileSystemService.js";
 import { FileSystemService } from "./FileSystemService.js";
 import { IAwarenessService } from "../interfaces/IAwarenessService.js";
 import { AwarenessService } from "./AwarenessService.js";
+import { SessionInfoViewModel } from "../ui/session-info-view/SessionInfoViewModel.js";
+import { ChatViewModel } from "../ui/chat-view/ChatViewModel.js";
+import { SessionInfo } from "../session/SessionInfo.js";
 
 @injectable()
 export class SessionService implements ISessionService {
     private _onDidChange = new vscode.EventEmitter<void>();
     readonly onDidChange = this._onDidChange.event;
-    private _onInitialize = new vscode.EventEmitter<void>();
-    readonly onBeginSession = this._onInitialize.event;
+
+    private _onBeginSession = new vscode.EventEmitter<void>();
+    readonly onBeginSession = this._onBeginSession.event;
+
+    private _onEndSession = new vscode.EventEmitter<void>();
+    readonly onEndSession = this._onEndSession.event;
 
     private sessionContainer?: DependencyContainer;
 
@@ -54,14 +61,20 @@ export class SessionService implements ISessionService {
         this.session = null;
         this.disposeSessionContainer();
         this._onDidChange.fire();
+        this._onEndSession.fire();
     }
 
-    initializeSessionContainer() {
+    initializeSessionContainer(sessionInfo: SessionInfo) {
         this.sessionContainer = container.createChildContainer();
+
+
         this.sessionContainer.registerInstance<Session>(
             "Session",
             this.session!
         );
+        this.sessionContainer.registerInstance<SessionInfo>("SessionInfo", sessionInfo);
+
+        // initialize services
         this.sessionContainer.registerSingleton<IFileSystemService>(
             "IFileSystemService",
             FileSystemService
@@ -78,19 +91,30 @@ export class SessionService implements ISessionService {
             "IChatService",
             ChatService
         );
+
+        // initialize viewmodels
+        this.sessionContainer.registerSingleton<SessionInfoViewModel>(
+            "SessionInfoViewModel",
+            SessionInfoViewModel
+        );
+        this.sessionContainer.registerSingleton<ChatViewModel>(
+            "ChatViewModel",
+            ChatViewModel
+        );
     }
 
     private async initializeSessionServices(username: string, singleFilePath?: string): Promise<void> {
         const awarenessService = this.sessionContainer!.resolve<IAwarenessService>("IAwarenessService");
-        awarenessService.setupAwareness(
-            () => this._onDidChange.fire(),
+        awarenessService.onParticipantsDidChange(() => {
+            this._onDidChange.fire();
+        });
+        awarenessService.onParticipantDisconnect(
             async () => {
                 if (this.session?.participantType === "Guest") {
                     await this.disconnectSession();
                 }
             }
         );
-        awarenessService.initializeUser(username, this.session!.participantType);
 
         const fileSystemService = this.sessionContainer!.resolve<IFileSystemService>("IFileSystemService");
         fileSystemService.setupFileChangeHandling();
@@ -205,9 +229,15 @@ export class SessionService implements ISessionService {
                             return;
                         }
 
-                        this._onInitialize.fire();
-                        this.initializeSessionContainer();
+                        const sessionInfo: SessionInfo = {
+                            username: pendingSession.username,
+                            participantType: this.session!.participantType
+                        };
+
+                        this.initializeSessionContainer(sessionInfo);
                         await this.initializeSessionServices(pendingSession.username);
+                        this._onDidChange.fire();
+                        this._onBeginSession.fire();
 
                         vscode.window.showInformationMessage(
                             "Connected to collaboration session"
@@ -273,6 +303,7 @@ export class SessionService implements ISessionService {
         await this.persistenceService.setPendingSessionState(undefined);
         this.session = null;
         this._onDidChange.fire();
+        this._onEndSession.fire();
     }
 
     // https://stackblitz.com/edit/y-quill-doc-list?file=index.ts
@@ -368,9 +399,15 @@ export class SessionService implements ISessionService {
             return;
         }
 
-        this._onInitialize.fire();
-        this.initializeSessionContainer();
+        const sessionInfo: SessionInfo = {
+            username,
+            participantType: this.session.participantType
+        };
+
+        this.initializeSessionContainer(sessionInfo);
         await this.initializeSessionServices(username, singleFilePath);
+        this._onDidChange.fire();
+        this._onBeginSession.fire();
 
         const message = startedForFileName
             ? `Collaboration session started for file ${startedForFileName} with room code: ${this.session.roomCode}`
