@@ -12,6 +12,10 @@
         background-color: #264f78;
         border-radius: 8px;
 
+        .chatMessage {
+            word-break: break-word;
+        }
+
         .chatTimestamp {
             font-weight: bold;
             font-size: 0.7rem;

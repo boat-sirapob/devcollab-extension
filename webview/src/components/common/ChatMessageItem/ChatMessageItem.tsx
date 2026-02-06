@@ -2,9 +2,13 @@ import { ChatMessage } from "../../../../../shared/models/ChatHistoryItem";
 import classNames from "classnames";
 import styles from "./ChatMessageItem.module.scss";
 import { useChatService } from "../../../services/ChatService";
-import { useEffect } from "react";
 
-function ChatMessageItem({ value }: { value: ChatMessage }) {
+type ChatMessageItemProps = {
+    value: ChatMessage;
+    showSenderName?: boolean;
+};
+
+function ChatMessageItem({ value, showSenderName = true }: ChatMessageItemProps) {
     const chatService = useChatService();
 
     const className = classNames(styles.container, {
@@ -12,7 +16,9 @@ function ChatMessageItem({ value }: { value: ChatMessage }) {
     });
     return (
         <div className={className}>
-            <div className={styles.chatSenderName}>{value.displayName}</div>
+            {showSenderName && (
+                <div className={styles.chatSenderName}>{value.displayName}</div>
+            )}
             <div className={styles.chatContent}>
                 <div className={styles.chatMessage}>{value.content}</div>
                 <div className={styles.chatTimestamp}>

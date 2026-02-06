@@ -52,17 +52,24 @@ function ChatView() {
                         <div className={styles.emptyState}>
                             No messages yet. Start the conversation!
                         </div>
-                        : chatItems.map((item) => {
+                        : chatItems.map((item, index) => {
                             if (item.type === ChatHistoryItemType.MESSAGE) {
-                                let chatMessage = item as ChatMessage;
+                                const chatMessage = item as ChatMessage;
+                                const previousItem = chatItems[index - 1];
+                                const showSenderName =
+                                    !previousItem ||
+                                    previousItem.type !== ChatHistoryItemType.MESSAGE ||
+                                    (previousItem as ChatMessage).senderId !== chatMessage.senderId;
+
                                 return (
                                     <ChatMessageItem
                                         key={chatMessage.id}
                                         value={chatMessage}
+                                        showSenderName={showSenderName}
                                     />
                                 );
                             } else if (item.type === ChatHistoryItemType.TIMELINE) {
-                                let timelineItem = item as ChatHistoryTimelineItem;
+                                const timelineItem = item as ChatHistoryTimelineItem;
                                 return (
                                     <ChatTimelineItem
                                         key={timelineItem.id}
