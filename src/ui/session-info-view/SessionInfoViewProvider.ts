@@ -25,7 +25,7 @@ export class SessionInfoViewProvider implements vscode.TreeDataProvider<Node> {
     private viewModel?: SessionInfoViewModel;
 
     constructor(
-        private state: ExtensionState,
+        @inject(ExtensionState) private state: ExtensionState,
         @inject("ISessionService") private sessionService: ISessionService
     ) {
         state.onDidChange(() => {

@@ -1,8 +1,9 @@
 {
     "name": "devcollab",
+    "publisher": "boat-sirapob",
     "displayName": "DevCollab",
     "description": "UofG Level 4 Individual Project - Extending an IDE with Tools for Collaborative Development/Testing ",
-    "version": "0.0.1",
+    "version": "0.1.0",
     "license": "MIT",
     "engines": {
         "vscode": "^1.104.0"
@@ -18,7 +19,7 @@
     "activationEvents": [
         "onStartupFinished"
     ],
-    "main": "./out/src/extension.js",
+    "main": "./dist/extension.js",
     "contributes": {
         "viewsContainers": {
             "activitybar": [
@@ -126,10 +127,12 @@
         }
     },
     "scripts": {
-        "vscode:prepublish": "yarn run webview:build && yarn run compile",
+        "vscode:prepublish": "yarn run webview:build && yarn run compile && yarn run bundle",
         "webview:build": "yarn --cwd webview build",
         "compile": "tsc -p ./",
-        "watch": "tsc -watch -p ./",
+        "bundle": "node ./esbuild.config.mjs",
+        "watch:tsc": "tsc -watch -p ./",
+        "watch:bundle": "node ./esbuild.config.mjs --watch",
         "pretest": "yarn run compile && yarn run lint",
         "lint": "eslint src",
         "test": "vscode-test",
@@ -145,6 +148,7 @@
         "@vscode/test-cli": "^0.0.11",
         "@vscode/test-electron": "^2.5.2",
         "@vscode/vsce": "^3.7.0",
+        "esbuild": "^0.27.3",
         "eslint": "^9.34.0",
         "typescript": "^5.9.2"
     },

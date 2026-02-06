@@ -4,16 +4,42 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
+			"label": "build:extension",
 			"type": "npm",
-			"script": "watch",
+			"script": "vscode:prepublish",
+			"problemMatcher": [],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			}
+		},
+		{
+			"label": "build:webview",
+			"type": "npm",
+			"script": "webview:build",
+			"problemMatcher": [],
+			"presentation": {
+				"reveal": "never"
+			}
+		},
+		{
+			"label": "watch:tsc",
+			"type": "npm",
+			"script": "watch:tsc",
 			"problemMatcher": "$tsc-watch",
 			"isBackground": true,
 			"presentation": {
 				"reveal": "never"
-			},
-			"group": {
-				"kind": "build",
-				"isDefault": true
+			}
+		},
+		{
+			"label": "watch:bundle",
+			"type": "npm",
+			"script": "watch:bundle",
+			"problemMatcher": [],
+			"isBackground": true,
+			"presentation": {
+				"reveal": "never"
 			}
 		}
 	]
