@@ -7,7 +7,7 @@ import { ChatHistoryItem, ChatHistoryItemType, ChatMessage } from "../../shared/
 import { v4 as uuidv4 } from "uuid";
 import { IAwarenessService } from "../interfaces/IAwarenessService.js";
 import { Mapper } from "../../shared/helpers/Mapper.js";
-import { ChatHistoryItemDto } from "../../shared/dtos/ChatHistoryItemDto.js";
+import { ChatHistoryItemDto, ChatMessageDto } from "../../shared/dtos/ChatHistoryItemDto.js";
 
 @injectable()
 export class ChatService implements IChatService {
@@ -21,7 +21,20 @@ export class ChatService implements IChatService {
         @inject("IAwarenessService") private awarenessService: IAwarenessService
     ) {
         this._chatHistory = this.session.doc.getArray("chat-history");
-        this._chatHistory.observe(() => {
+        this._chatHistory.observe((event: Y.YArrayEvent<ChatHistoryItemDto>) => {
+            event.delta?.forEach((op) => {
+                if (op.insert) {
+                    const items = op.insert as ChatHistoryItemDto[];
+                    items.forEach((item) => {
+                        if (item.type === ChatHistoryItemType.MESSAGE) {
+                            const message = item as ChatMessageDto;
+                            if (message.senderId !== this.awarenessService.currentUser.clientId) {
+                                vscode.window.showInformationMessage(`New message from ${message.displayName}: ${message.content}`);
+                            }
+                        }
+                    });
+                }
+            });
             this._onChatHistoryDidChange.fire();
         });
     }
