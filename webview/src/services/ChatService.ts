@@ -43,7 +43,6 @@ export class ChatService implements IChatService {
     handleBeginSessionMessage = (data: BeginSessionMessage) => {
         this.isInSession = true;
         this.currentUser = data.user;
-        console.log(this.currentUser)
     };
 
     handleUpdateChatHistory(data: UpdateChatHistoryEvent) {

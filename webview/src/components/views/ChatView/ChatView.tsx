@@ -11,6 +11,7 @@ import { useChatService } from "../../../services/ChatService";
 function ChatView() {
     const chatService = useChatService();
     const messageInputRef = useRef<VscodeTextareaType>(null);
+    const chatListRef = useRef<HTMLDivElement>(null);
     const [chatItems, setChatItems] = useState<ChatHistoryItem[]>([]);
 
     useEffect(() => {
@@ -44,9 +45,15 @@ function ChatView() {
         }
     }, []);
 
+    useEffect(() => {
+        if (chatListRef.current) {
+            chatListRef.current.scrollTop = chatListRef.current.scrollHeight;
+        }
+    }, [chatItems]);
+
     return (
         <div className={styles.container}>
-            <div className={styles.chatList}>
+            <div className={styles.chatList} ref={chatListRef}>
                 {
                     chatItems.length === 0 ?
                         <div className={styles.emptyState}>
