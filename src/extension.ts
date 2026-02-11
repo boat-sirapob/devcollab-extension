@@ -8,6 +8,7 @@ import { IPersistenceService } from "./interfaces/IPersistenceService.js";
 import { ISessionService } from "./interfaces/ISessionService.js";
 import { PersistenceService } from "./services/PersistenceService.js";
 import { SessionInfoViewProvider } from "./ui/session-info-view/SessionInfoViewProvider.js";
+import { SharedTerminalsViewProvider } from "./ui/shared-terminals-view/SharedTerminalsViewProvider.js";
 import { SessionService } from "./services/SessionService.js";
 import { StatusBarProvider } from "./ui/status-bar/StatusBarProvider.js";
 import { container } from "tsyringe";
@@ -75,6 +76,15 @@ export function registerViewProviders(context: vscode.ExtensionContext) {
             },
         }
     );
+
+    container.registerSingleton<SharedTerminalsViewProvider>(
+        "SharedTerminalsViewProvider",
+        SharedTerminalsViewProvider
+    );
+    const terminalsProvider = container.resolve<SharedTerminalsViewProvider>("SharedTerminalsViewProvider");
+    vscode.window.createTreeView(terminalsProvider.viewType, {
+        treeDataProvider: terminalsProvider,
+    });
 }
 
 export function registerCommands(context: vscode.ExtensionContext) {
@@ -110,6 +120,18 @@ export function registerCommands(context: vscode.ExtensionContext) {
         {
             command: "devcollab.toggleFollow",
             callback: state.toggleFollow,
+        },
+        {
+            command: "devcollab.shareTerminal",
+            callback: state.shareTerminal,
+        },
+        {
+            command: "devcollab.joinSharedTerminal",
+            callback: state.joinSharedTerminal,
+        },
+        {
+            command: "devcollab.joinTerminalById",
+            callback: state.joinTerminalById,
         },
     ];
 

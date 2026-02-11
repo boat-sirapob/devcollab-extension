@@ -5,6 +5,7 @@ import { IFollowService } from "./interfaces/IFollowService.js";
 import { SessionParticipant } from "../shared/models/SessionParticipant.js";
 import { ISessionService } from "./interfaces/ISessionService.js";
 import { IUndoRedoService } from "./interfaces/IUndoRedoService.js";
+import { ITerminalService } from "./interfaces/ITerminalService.js";
 
 @injectable()
 export class ExtensionState {
@@ -100,5 +101,35 @@ export class ExtensionState {
 
         const undoRedoService = this.sessionService.get<IUndoRedoService>("IUndoRedoService");
         undoRedoService.handleRedo();
+    }
+
+    shareTerminal() {
+        if (!this.sessionService.hasSession()) {
+            vscode.window.showErrorMessage("No active collaboration session.");
+            return;
+        }
+
+        const terminalService = this.sessionService.get<ITerminalService>("ITerminalService");
+        terminalService.shareTerminal();
+    }
+
+    joinSharedTerminal() {
+        if (!this.sessionService.hasSession()) {
+            vscode.window.showErrorMessage("No active collaboration session.");
+            return;
+        }
+
+        const terminalService = this.sessionService.get<ITerminalService>("ITerminalService");
+        terminalService.joinSharedTerminal();
+    }
+
+    joinTerminalById(id: string) {
+        if (!this.sessionService.hasSession()) {
+            vscode.window.showErrorMessage("No active collaboration session.");
+            return;
+        }
+
+        const terminalService = this.sessionService.get<ITerminalService>("ITerminalService");
+        terminalService.joinTerminalById(id);
     }
 }

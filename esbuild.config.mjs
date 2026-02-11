@@ -10,7 +10,7 @@ const options = {
   target: "node18",
   outfile: "dist/extension.js",
   sourcemap: true,
-  external: ["vscode"],
+  external: ["vscode", "node-pty"],
   define: {
     "process.env.NODE_ENV": JSON.stringify(
       isWatch ? "development" : "production"
