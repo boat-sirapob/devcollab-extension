@@ -26,3 +26,4 @@ webview/**
 !media/**
 !dist/**
 !webview/build/**
+!node_modules/node-pty/**
