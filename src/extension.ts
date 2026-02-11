@@ -8,8 +8,9 @@ import { IPersistenceService } from "./interfaces/IPersistenceService.js";
 import { ISessionService } from "./interfaces/ISessionService.js";
 import { PersistenceService } from "./services/PersistenceService.js";
 import { SessionInfoViewProvider } from "./ui/session-info-view/SessionInfoViewProvider.js";
-import { SharedTerminalsViewProvider } from "./ui/shared-terminals-view/SharedTerminalsViewProvider.js";
 import { SessionService } from "./services/SessionService.js";
+import { SharedServersViewProvider } from "./ui/shared-servers-view/SharedServersViewProvider.js";
+import { SharedTerminalsViewProvider } from "./ui/shared-terminals-view/SharedTerminalsViewProvider.js";
 import { StatusBarProvider } from "./ui/status-bar/StatusBarProvider.js";
 import { container } from "tsyringe";
 
@@ -85,6 +86,15 @@ export function registerViewProviders(context: vscode.ExtensionContext) {
     vscode.window.createTreeView(terminalsProvider.viewType, {
         treeDataProvider: terminalsProvider,
     });
+
+    container.registerSingleton<SharedServersViewProvider>(
+        "SharedServersViewProvider",
+        SharedServersViewProvider
+    );
+    const serversProvider = container.resolve<SharedServersViewProvider>("SharedServersViewProvider");
+    vscode.window.createTreeView(serversProvider.viewType, {
+        treeDataProvider: serversProvider,
+    });
 }
 
 export function registerCommands(context: vscode.ExtensionContext) {
@@ -132,6 +142,22 @@ export function registerCommands(context: vscode.ExtensionContext) {
         {
             command: "devcollab.joinTerminalById",
             callback: state.joinTerminalById,
+        },
+        {
+            command: "devcollab.shareServer",
+            callback: state.shareServer,
+        },
+        {
+            command: "devcollab.joinSharedServer",
+            callback: state.joinSharedServer,
+        },
+        {
+            command: "devcollab.joinServerById",
+            callback: state.joinServerById,
+        },
+        {
+            command: "devcollab.stopSharedServer",
+            callback: state.stopSharedServer,
         },
     ];
 

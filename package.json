@@ -38,6 +38,10 @@
             {
                 "view": "devcollab.terminals",
                 "contents": "No terminals being shared.\n[Share Terminal](command:devcollab.shareTerminal)"
+            },
+            {
+                "view": "devcollab.servers",
+                "contents": "No servers being shared.\n[Share Server](command:devcollab.shareServer)"
             }
         ],
         "views": {
@@ -51,6 +55,12 @@
                     "id": "devcollab.terminals",
                     "name": "Shared Terminals",
                     "icon": "media/terminal.svg",
+                    "when": "devcollab.isInSession"
+                },
+                {
+                    "id": "devcollab.servers",
+                    "name": "Shared Servers",
+                    "icon": "media/server.svg",
                     "when": "devcollab.isInSession"
                 },
                 {
@@ -73,6 +83,18 @@
                     "command": "devcollab.shareTerminal",
                     "when": "devcollab.isInSession && view == devcollab.terminals",
                     "group": "navigation"
+                },
+                {
+                    "command": "devcollab.shareServer",
+                    "when": "devcollab.isInSession && view == devcollab.servers",
+                    "group": "navigation"
+                }
+            ],
+            "view/item/context": [
+                {
+                    "command": "devcollab.stopSharedServer",
+                    "when": "devcollab.isInSession && view == devcollab.servers && viewItem == ownServer",
+                    "group": "inline"
                 }
             ]
         },
@@ -118,6 +140,20 @@
             {
                 "command": "devcollab.joinSharedTerminal",
                 "title": "DevCollab: Join Shared Terminal"
+            },
+            {
+                "command": "devcollab.shareServer",
+                "title": "DevCollab: Share Server",
+                "icon": "$(broadcast)"
+            },
+            {
+                "command": "devcollab.joinSharedServer",
+                "title": "DevCollab: Join Shared Server"
+            },
+            {
+                "command": "devcollab.stopSharedServer",
+                "title": "DevCollab: Stop Sharing Server",
+                "icon": "$(close)"
             }
         ],
         "keybindings": [
