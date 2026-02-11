@@ -26,6 +26,9 @@ import { UndoRedoService } from "./UndoRedoService.js";
 import { IUndoRedoService } from "../interfaces/IUndoRedoService.js";
 import { ITerminalService } from "../interfaces/ITerminalService.js";
 import { TerminalService } from "./TerminalService.js";
+import { ISharedServerService } from "../interfaces/ISharedServerService.js";
+import { SharedServerService } from "./SharedServerService.js";
+import { SharedServersViewModel } from "../ui/shared-servers-view/SharedServersViewModel.js";
 import { SharedTerminalsViewModel } from "../ui/shared-terminals-view/SharedTerminalsViewModel.js";
 
 @injectable()
@@ -100,6 +103,10 @@ export class SessionService implements ISessionService {
             "ITerminalService",
             TerminalService
         );
+        this.sessionContainer.registerSingleton<ISharedServerService>(
+            "ISharedServerService",
+            SharedServerService
+        );
 
         // initialize viewmodels
         this.sessionContainer.registerSingleton<SessionInfoViewModel>(
@@ -113,6 +120,10 @@ export class SessionService implements ISessionService {
         this.sessionContainer.registerSingleton<SharedTerminalsViewModel>(
             "SharedTerminalsViewModel",
             SharedTerminalsViewModel
+        );
+        this.sessionContainer.registerSingleton<SharedServersViewModel>(
+            "SharedServersViewModel",
+            SharedServersViewModel
         );
     }
 
@@ -159,6 +170,8 @@ export class SessionService implements ISessionService {
         fileSystemService.dispose();
         const terminalService = this.sessionContainer.resolve<ITerminalService>("ITerminalService");
         terminalService.dispose();
+        const sharedServerService = this.sessionContainer.resolve<ISharedServerService>("ISharedServerService");
+        sharedServerService.dispose();
 
         this.sessionContainer?.clearInstances();
         this.sessionContainer = undefined;
