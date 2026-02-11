@@ -24,6 +24,9 @@ import { ChatViewModel } from "../ui/chat-view/ChatViewModel.js";
 import { SessionInfo } from "../session/SessionInfo.js";
 import { UndoRedoService } from "./UndoRedoService.js";
 import { IUndoRedoService } from "../interfaces/IUndoRedoService.js";
+import { ITerminalService } from "../interfaces/ITerminalService.js";
+import { TerminalService } from "./TerminalService.js";
+import { SharedTerminalsViewModel } from "../ui/shared-terminals-view/SharedTerminalsViewModel.js";
 
 @injectable()
 export class SessionService implements ISessionService {
@@ -55,10 +58,6 @@ export class SessionService implements ISessionService {
     }
 
     dispose(): void {
-        if (this.sessionContainer) {
-            const fileSystemService = this.sessionContainer.resolve<IFileSystemService>("IFileSystemService");
-            fileSystemService.dispose();
-        }
         this.session?.dispose();
         this.session = null;
         this.disposeSessionContainer();
@@ -97,6 +96,10 @@ export class SessionService implements ISessionService {
             "IUndoRedoService",
             UndoRedoService
         );
+        this.sessionContainer.registerSingleton<ITerminalService>(
+            "ITerminalService",
+            TerminalService
+        );
 
         // initialize viewmodels
         this.sessionContainer.registerSingleton<SessionInfoViewModel>(
@@ -106,6 +109,10 @@ export class SessionService implements ISessionService {
         this.sessionContainer.registerSingleton<ChatViewModel>(
             "ChatViewModel",
             ChatViewModel
+        );
+        this.sessionContainer.registerSingleton<SharedTerminalsViewModel>(
+            "SharedTerminalsViewModel",
+            SharedTerminalsViewModel
         );
     }
 
@@ -144,6 +151,15 @@ export class SessionService implements ISessionService {
     }
 
     disposeSessionContainer() {
+        if (!this.sessionContainer) {
+            return;
+        }
+
+        const fileSystemService = this.sessionContainer.resolve<IFileSystemService>("IFileSystemService");
+        fileSystemService.dispose();
+        const terminalService = this.sessionContainer.resolve<ITerminalService>("ITerminalService");
+        terminalService.dispose();
+
         this.sessionContainer?.clearInstances();
         this.sessionContainer = undefined;
     }
@@ -302,6 +318,8 @@ export class SessionService implements ISessionService {
         if (this.sessionContainer) {
             const fileSystemService = this.sessionContainer.resolve<IFileSystemService>("IFileSystemService");
             fileSystemService.dispose();
+            const terminalService = this.sessionContainer.resolve<ITerminalService>("ITerminalService");
+            terminalService.dispose();
         }
 
         this.disposeSessionContainer();
