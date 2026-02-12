@@ -144,6 +144,10 @@ export function registerCommands(context: vscode.ExtensionContext) {
             callback: state.joinTerminalById,
         },
         {
+            command: "devcollab.stopSharedTerminal",
+            callback: state.stopSharingTerminal,
+        },
+        {
             command: "devcollab.shareServer",
             callback: state.shareServer,
         },

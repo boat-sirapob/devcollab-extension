@@ -62,6 +62,7 @@ export class SharedTerminalsViewProvider implements vscode.TreeDataProvider<Term
 
         if (isOwn) {
             item.tooltip = `Click to focus your ${node.shell} terminal`;
+            item.contextValue = "ownTerminal";
         } else {
             item.tooltip = `Click to join ${node.owner}'s ${node.shell} terminal`;
         }

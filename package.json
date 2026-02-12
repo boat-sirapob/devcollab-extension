@@ -92,6 +92,11 @@
             ],
             "view/item/context": [
                 {
+                    "command": "devcollab.stopSharedTerminal",
+                    "when": "devcollab.isInSession && view == devcollab.terminals && viewItem == ownTerminal",
+                    "group": "inline"
+                },
+                {
                     "command": "devcollab.stopSharedServer",
                     "when": "devcollab.isInSession && view == devcollab.servers && viewItem == ownServer",
                     "group": "inline"
@@ -140,6 +145,11 @@
             {
                 "command": "devcollab.joinSharedTerminal",
                 "title": "DevCollab: Join Shared Terminal"
+            },
+            {
+                "command": "devcollab.stopSharedTerminal",
+                "title": "DevCollab: Stop Sharing Terminal",
+                "icon": "$(close)"
             },
             {
                 "command": "devcollab.shareServer",
