@@ -26,6 +26,7 @@ import { ShellProfile } from "../terminal/ShellProfile.js";
 export class TerminalService implements ITerminalService {
     private terminalMap = new Map<string, vscode.Terminal>();
     private registry: Y.Map<TerminalInfo>;
+    private terminalCloseListener: vscode.Disposable;
 
     private _onRegistryChange = new vscode.EventEmitter<void>();
     readonly onRegistryChange: vscode.Event<void> = this._onRegistryChange.event;
@@ -39,6 +40,17 @@ export class TerminalService implements ITerminalService {
         this.registry.observe(() => {
             this._onRegistryChange.fire();
         });
+
+        this.terminalCloseListener = vscode.window.onDidCloseTerminal(this.handleTerminalClose);
+    }
+
+    handleTerminalClose = (closedTerminal: vscode.Terminal) => {
+        for (const [id, terminal] of this.terminalMap.entries()) {
+            if (terminal === closedTerminal) {
+                this.terminalMap.delete(id);
+                break;
+            }
+        }
     }
 
     getSharedTerminals(): TerminalInfo[] {
@@ -203,6 +215,55 @@ export class TerminalService implements ITerminalService {
 
         this.terminalMap.set(id, terminal);
         terminal.show();
+    }
+
+    async stopSharingTerminal(id?: string): Promise<void> {
+        if (!id) {
+            // prompt user to pick from their own active shared terminals
+            const ownTerminals: { id: string; entry: TerminalInfo }[] = [];
+
+            this.registry.forEach((entry, id) => {
+                if (entry.active && entry.owner === this.sessionInfo.username) {
+                    ownTerminals.push({ id, entry });
+                }
+            });
+            if (ownTerminals.length === 0) {
+                vscode.window.showErrorMessage(
+                    "You have no active shared terminals to stop sharing."
+                );
+                return;
+            }
+            interface TerminalPickItem extends vscode.QuickPickItem {
+                terminalId: string;
+            }
+            const items: TerminalPickItem[] = ownTerminals.map(({ id, entry }) => ({
+                label: entry.shell,
+                description: `Terminal ID: ${id}`,
+                terminalId: id,
+            }));
+            const picked = await vscode.window.showQuickPick(items, {
+                placeHolder: "Select a shared terminal to stop sharing",
+            });
+            if (!picked) {
+                return; // user cancelled
+            }
+            id = picked.terminalId;
+        }
+
+        const entry = this.registry.get(id);
+
+        if (entry) {
+            // stop the terminal
+            const terminal = this.terminalMap.get(id);
+            if (terminal) {
+                terminal.dispose();
+                this.terminalMap.delete(id);
+            }
+
+            // update registry
+            this.registry.set(id, { ...entry, active: false });
+            vscode.window.showInformationMessage("Stopped sharing terminal.");
+        }
     }
 
     private generateTerminalId(): string {
@@ -390,6 +451,7 @@ export class TerminalService implements ITerminalService {
     }
 
     dispose(): void {
+        this.terminalCloseListener.dispose();
         for (const terminal of this.terminalMap.values()) {
             terminal.dispose();
         }

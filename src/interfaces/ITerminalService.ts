@@ -7,6 +7,7 @@ export interface ITerminalService {
     shareTerminal(): Promise<void>;
     joinSharedTerminal(): Promise<void>;
     joinTerminalById(id: string): void;
+    stopSharingTerminal(id?: string): Promise<void>;
     getSharedTerminals(): TerminalInfo[];
     dispose(): void;
 }

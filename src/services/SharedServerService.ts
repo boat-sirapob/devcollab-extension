@@ -55,7 +55,7 @@ export class SharedServerService implements ISharedServerService {
             validateInput: (v) => {
                 const n = parseInt(v, 10);
                 if (isNaN(n) || n < 1 || n > 65535) {
-                    return "Enter a valid port (1–65535)";
+                    return "Enter a valid port (1-65535)";
                 }
                 return undefined;
             },

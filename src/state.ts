@@ -134,6 +134,17 @@ export class ExtensionState {
         terminalService.joinTerminalById(id);
     }
 
+    stopSharingTerminal(terminalInfo?: { id: string }) {
+        if (!this.sessionService.hasSession()) {
+            vscode.window.showErrorMessage("No active collaboration session.");
+            return;
+        }
+
+        const terminalService = this.sessionService.get<ITerminalService>("ITerminalService");
+        terminalService.stopSharingTerminal(terminalInfo?.id);
+        vscode.window.showInformationMessage("Stopped sharing terminal.");
+    }
+
     async shareServer() {
         if (!this.sessionService.hasSession()) {
             vscode.window.showErrorMessage("No active collaboration session.");
