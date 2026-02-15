@@ -132,7 +132,7 @@ export class FollowService implements IFollowService {
                 return;
             }
 
-            vscode.window.showTextDocument(document).then((editor) => {
+            vscode.window.showTextDocument(document, { preserveFocus: true }).then((editor) => {
                 editor.revealRange(
                     new vscode.Range(
                         cursor.selections[0].anchor.line,
