@@ -14,6 +14,8 @@ import { CustomDecorationType } from "../models/CustomDecoratorType.js";
 import { FileSavedAwarenessState } from "../models/FileSavedAwarenessState.js";
 import { FileSystemUtilities } from "../helpers/FileSystemUtilities.js";
 import throttle from "lodash.throttle";
+import { inject } from "tsyringe";
+import { IFollowService } from "../interfaces/IFollowService.js";
 
 export class DocumentBinding {
     yText: Y.Text;
@@ -54,6 +56,7 @@ export class DocumentBinding {
     }) => void;
 
     constructor(
+        @inject("FollowService") private followService: IFollowService,
         yText: Y.Text,
         doc: vscode.TextDocument,
         rootPath: string,
@@ -233,32 +236,42 @@ export class DocumentBinding {
                             overviewRulerLane: vscode.OverviewRulerLane.Right,
                         });
 
-                    const cursorDecoration =
-                        vscode.window.createTextEditorDecorationType({
-                            before: {
-                                backgroundColor: `${user.color}`,
-                                contentText: user.displayName,
-                                textDecoration: "none;" + `
-                                    position: absolute;
-                                    top: var(--vscode-editorCodeLens-lineHeight);
-                                    padding: 2px;
-                                    color: black;
-                                    z-index: 10;
-                                    border-radius: 0 4px 4px 4px;
-                                `,
-                            },
-                            borderColor: user.color,
-                            borderWidth: "1px",
-                            borderStyle: "solid",
-                            rangeBehavior:
-                                vscode.DecorationRangeBehavior.ClosedOpen,
-                            overviewRulerColor: user.color,
-                            overviewRulerLane: vscode.OverviewRulerLane.Right,
-                        });
+                    const beforeOptions = {
+                        backgroundColor: `${user.color}`,
+                        contentText: user.displayName,
+                        textDecoration: "none;" + `
+                            position: absolute;
+                            top: var(--vscode-editorCodeLens-lineHeight);
+                            padding: 2px;
+                            color: black;
+                            z-index: 10;
+                            border-radius: 0 4px 4px 4px;
+                        `,
+                    }
+                    const cursorDecorationOptions = {
+                        before: beforeOptions,
+                        borderColor: user.color,
+                        borderWidth: "1px",
+                        borderStyle: "solid",
+                        rangeBehavior:
+                            vscode.DecorationRangeBehavior.ClosedOpen,
+                        overviewRulerColor: user.color,
+                        overviewRulerLane: vscode.OverviewRulerLane.Right,
+                    };
+                    const cursorDecoration = vscode.window.createTextEditorDecorationType(cursorDecorationOptions);
+
+                    const followCursorDecoration = vscode.window.createTextEditorDecorationType({
+                        ...cursorDecorationOptions,
+                        before: {
+                            ...beforeOptions,
+                            contentText: `${user.displayName} - Following`,
+                        }
+                    });
 
                     decorations = {
                         selection: selectionDecoration,
                         cursor: cursorDecoration,
+                        followingCursor: followCursorDecoration,
                     };
                     this.decorationTypeMap.set(clientId, decorations);
                 }
@@ -309,8 +322,13 @@ export class DocumentBinding {
                         ),
                     }));
 
+                var cursorToUse = decorations.cursor;
+                if (this.followService.followingParticipant?.clientId === clientId) {
+                    cursorToUse = decorations.followingCursor;
+                }
+
                 editor.setDecorations(decorations.selection, selectionRanges);
-                editor.setDecorations(decorations.cursor, cursorOptions);
+                editor.setDecorations(cursorToUse, cursorOptions);
             }
         };
 
