@@ -10,6 +10,8 @@ import { WorkspaceItem } from "../models/WorkspaceItem.js";
 import { FileSystemUtilities } from "../helpers/FileSystemUtilities.js";
 import { absoluteToRelative, relativeToAbsolute } from "../helpers/Utilities.js";
 import { Session } from "../session/Session.js";
+import { IFollowService } from "../interfaces/IFollowService.js";
+import { ISessionService } from "../interfaces/ISessionService.js";
 
 @injectable()
 export class FileSystemService implements IFileSystemService {
@@ -19,7 +21,10 @@ export class FileSystemService implements IFileSystemService {
     private isApplyingRemoteChange: boolean = false;
     private rootPath: string;
 
-    constructor(@inject("Session") private session: Session) {
+    constructor(
+        @inject("Session") private session: Session,
+        @inject("ISessionService") private sessionService: ISessionService
+    ) {
         this.workspaceMap = session.doc.getMap<Y.Text>("workspace-map");
         this.rootPath = session.rootPath;
     }
@@ -115,7 +120,10 @@ export class FileSystemService implements IFileSystemService {
         );
         const doc = await vscode.workspace.openTextDocument(filePath);
 
+        const followService = this.sessionService.get<IFollowService>("IFollowService");
+
         const binding = new DocumentBinding(
+            followService,
             yText,
             doc,
             this.rootPath,
