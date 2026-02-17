@@ -11,7 +11,7 @@ import { IFollowService } from "../../interfaces/IFollowService.js";
 
 @injectable()
 export class SessionInfoWebviewProvider extends BaseWebviewProvider {
-    viewType = "devcollab.controls";
+    viewType = "devcollab.main";
     protected viewParam = "session-info";
 
     private viewModel?: SessionInfoWebviewModel;
@@ -66,7 +66,7 @@ export class SessionInfoWebviewProvider extends BaseWebviewProvider {
                     "IFollowService"
                 );
                 followService.toggleFollow(participant);
-                this.viewModel?.postUpdate();
+                this.viewModel.postUpdate();
                 break;
             }
             default:
