@@ -19,7 +19,7 @@ import { IFileSystemService } from "../interfaces/IFileSystemService.js";
 import { FileSystemService } from "./FileSystemService.js";
 import { IAwarenessService } from "../interfaces/IAwarenessService.js";
 import { AwarenessService } from "./AwarenessService.js";
-import { SessionInfoViewModel } from "../ui/session-info-view/SessionInfoViewModel.js";
+import { SessionInfoWebviewModel } from "../ui/session-info-webview/SessionInfoWebviewModel.js";
 import { ChatViewModel } from "../ui/chat-view/ChatViewModel.js";
 import { SessionInfo } from "../session/SessionInfo.js";
 import { UndoRedoService } from "./UndoRedoService.js";
@@ -109,9 +109,9 @@ export class SessionService implements ISessionService {
         );
 
         // initialize viewmodels
-        this.sessionContainer.registerSingleton<SessionInfoViewModel>(
-            "SessionInfoViewModel",
-            SessionInfoViewModel
+        this.sessionContainer.registerSingleton<SessionInfoWebviewModel>(
+            "SessionInfoWebviewModel",
+            SessionInfoWebviewModel
         );
         this.sessionContainer.registerSingleton<ChatViewModel>(
             "ChatViewModel",
