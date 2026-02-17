@@ -48,7 +48,7 @@
             "devcollab": [
                 {
                     "id": "devcollab.mainWelcome",
-                    "name": "DevCollab Welcome",
+                    "name": "Welcome",
                     "icon": "media/devcollab.svg",
                     "when": "!devcollab.isInSession"
                 },
