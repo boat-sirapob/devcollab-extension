@@ -32,7 +32,7 @@
         },
         "viewsWelcome": [
             {
-                "view": "devcollab.main",
+                "view": "devcollab.mainWelcome",
                 "contents": "[Host Session](command:devcollab.hostSession)\n[Join Session](command:devcollab.joinSession)"
             },
             {
@@ -47,9 +47,17 @@
         "views": {
             "devcollab": [
                 {
+                    "id": "devcollab.mainWelcome",
+                    "name": "DevCollab Welcome",
+                    "icon": "media/devcollab.svg",
+                    "when": "!devcollab.isInSession"
+                },
+                {
                     "id": "devcollab.main",
                     "name": "DevCollab",
-                    "icon": "media/devcollab.svg"
+                    "icon": "media/devcollab.svg",
+                    "when": "devcollab.isInSession",
+                    "type": "webview"
                 },
                 {
                     "id": "devcollab.terminals",
@@ -99,6 +107,11 @@
                 {
                     "command": "devcollab.stopSharedServer",
                     "when": "devcollab.isInSession && view == devcollab.servers && viewItem == ownServer",
+                    "group": "inline"
+                },
+                {
+                    "command": "devcollab.toggleFollow",
+                    "when": "devcollab.isInSession && view == devcollab.main && viewItem == collaborator",
                     "group": "inline"
                 }
             ]
@@ -154,7 +167,7 @@
             {
                 "command": "devcollab.shareServer",
                 "title": "DevCollab: Share Server",
-                "icon": "$(broadcast)"
+                "icon": "$(plus)"
             },
             {
                 "command": "devcollab.joinSharedServer",

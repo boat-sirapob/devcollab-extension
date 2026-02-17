@@ -1,0 +1,47 @@
+.container {
+    display: flex;
+    flex-direction: column;
+    padding: 12px 0 20px 0;
+    gap: 24px;
+    height: 100%;
+
+    .infoList {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        
+        .roomCodeContainer {
+            display: flex;
+            gap: 8px;
+            justify-content: space-between;
+            align-items: center;
+    
+            .roomCode {
+                font-size: 2rem;
+                letter-spacing: 6px;
+                color: white;
+                line-height: 2rem;
+            }
+        }
+
+        .participantsList {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+    }
+}
+
+button {
+    padding: 8px 12px;
+    border-radius: 6px;
+    background-color: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
+    border: none;
+    cursor: pointer;
+
+    &:hover {
+        background-color: var(--vscode-button-hoverBackground);
+    }
+}

@@ -1,0 +1,38 @@
+.container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+
+    .content {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+
+        .nameContainer {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 500;
+            
+            .followStatusIndicator {
+                font-size: 0.85em;
+                background-color: #6d8086;
+                color: white;
+                padding: 2px 8px;
+                border-radius: 16px;
+            }
+        }
+
+        .editingFileContainer {
+            font-size: 0.9em;
+            opacity: 0.5;
+        }        
+    }
+    
+    .followControls {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+}

@@ -23,6 +23,10 @@ export abstract class BaseWebviewProvider
     ) {
         this._view = webviewView;
 
+        webviewView.onDidDispose(() => {
+            this._view = undefined;
+        });
+
         webviewView.webview.options = {
             enableScripts: true,
             localResourceRoots: [this._extensionUri],

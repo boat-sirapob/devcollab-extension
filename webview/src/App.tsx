@@ -1,6 +1,7 @@
 import "./App.css";
 
 import ChatView from "./components/views/ChatView/ChatView";
+import SessionInfoView from "./components/views/SessionInfoView/SessionInfoView";
 
 if (import.meta.env.DEV) {
     // @ts-ignore
@@ -18,6 +19,8 @@ function App() {
 
     const renderView = () => {
         switch (viewType) {
+            case "session-info":
+                return <SessionInfoView />;
             case "chat":
                 return <ChatView />;
             default:

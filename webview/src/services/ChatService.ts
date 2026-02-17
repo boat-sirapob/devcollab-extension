@@ -3,7 +3,6 @@ import { container, inject, injectable } from "tsyringe";
 
 import { BeginSessionMessage } from "../../../shared/models/webview-messages/BeginSessionMessage.js";
 import { IChatService } from "../interfaces/IChatService.js";
-import type { IMessageService } from "../interfaces/IMessageService.js";
 import { SendChatEvent } from "../../../shared/models/webview-messages/SendChatEvent.js";
 import { SessionParticipant } from "../../../shared/models/SessionParticipant.js";
 import { WebviewMessageBase } from "../../../shared/models/webview-messages/WebviewMessageBase.js";
@@ -23,7 +22,6 @@ export class ChatService implements IChatService {
     readonly onDidChangeHistory: Event<ChatHistoryItem[]> = this._onDidChangeHistory.event;
 
     constructor(
-        @inject("IMessageService") private messageService: IMessageService
     ) {
         window.addEventListener("message", this.handleMessageReceived);
     }

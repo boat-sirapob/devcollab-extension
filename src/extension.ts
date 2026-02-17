@@ -7,7 +7,7 @@ import { ExtensionState } from "./state.js";
 import { IPersistenceService } from "./interfaces/IPersistenceService.js";
 import { ISessionService } from "./interfaces/ISessionService.js";
 import { PersistenceService } from "./services/PersistenceService.js";
-import { SessionInfoViewProvider } from "./ui/session-info-view/SessionInfoViewProvider.js";
+import { SessionInfoWebviewProvider } from "./ui/session-info-webview/SessionInfoWebviewProvider.js";
 import { SessionService } from "./services/SessionService.js";
 import { SharedServersViewProvider } from "./ui/shared-servers-view/SharedServersViewProvider.js";
 import { SharedTerminalsViewProvider } from "./ui/shared-terminals-view/SharedTerminalsViewProvider.js";
@@ -54,14 +54,22 @@ export function initializeState(context: vscode.ExtensionContext) {
 }
 
 export function registerViewProviders(context: vscode.ExtensionContext) {
-    container.registerSingleton<SessionInfoViewProvider>(
-        "SessionInfoViewProvider",
-        SessionInfoViewProvider
+    container.registerSingleton<SessionInfoWebviewProvider>(
+        "SessionInfoWebviewProvider",
+        SessionInfoWebviewProvider
     );
-    const sidebarProvider = container.resolve<SessionInfoViewProvider>("SessionInfoViewProvider");
-    vscode.window.createTreeView(sidebarProvider.viewType, {
-        treeDataProvider: sidebarProvider,
-    });
+    const sessionInfoProvider = container.resolve<SessionInfoWebviewProvider>(
+        "SessionInfoWebviewProvider"
+    );
+    vscode.window.registerWebviewViewProvider(
+        sessionInfoProvider.viewType,
+        sessionInfoProvider,
+        {
+            webviewOptions: {
+                retainContextWhenHidden: true,
+            },
+        }
+    );
 
     container.registerSingleton<ChatViewProvider>(
         "ChatViewProvider",
