@@ -30,6 +30,8 @@ import { ISharedServerService } from "../interfaces/ISharedServerService.js";
 import { SharedServerService } from "./SharedServerService.js";
 import { SharedServersViewModel } from "../ui/shared-servers-view/SharedServersViewModel.js";
 import { SharedTerminalsViewModel } from "../ui/shared-terminals-view/SharedTerminalsViewModel.js";
+import { ITelemetryService } from "../interfaces/ITelemetryService.js";
+import { TelemetryService } from "./TelemetryService.js";
 
 @injectable()
 export class SessionService implements ISessionService {
@@ -107,6 +109,10 @@ export class SessionService implements ISessionService {
             "ISharedServerService",
             SharedServerService
         );
+        this.sessionContainer.registerSingleton<ITelemetryService>(
+            "ITelemetryService",
+            TelemetryService
+        );
 
         // initialize viewmodels
         this.sessionContainer.registerSingleton<SessionInfoWebviewModel>(
@@ -172,6 +178,13 @@ export class SessionService implements ISessionService {
         terminalService.dispose();
         const sharedServerService = this.sessionContainer.resolve<ISharedServerService>("ISharedServerService");
         sharedServerService.dispose();
+
+        try {
+            const telemetryService = this.sessionContainer.resolve<ITelemetryService>("ITelemetryService");
+            telemetryService.dispose();
+        } catch {
+            // telemetry may not be registered yet
+        }
 
         this.sessionContainer?.clearInstances();
         this.sessionContainer = undefined;

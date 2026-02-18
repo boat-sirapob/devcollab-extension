@@ -16,6 +16,7 @@ import { FileSystemUtilities } from "../helpers/FileSystemUtilities.js";
 import throttle from "lodash.throttle";
 import { inject } from "tsyringe";
 import { IFollowService } from "../interfaces/IFollowService.js";
+import { ITelemetryService } from "../interfaces/ITelemetryService.js";
 
 export class DocumentBinding {
     yText: Y.Text;
@@ -60,7 +61,8 @@ export class DocumentBinding {
         yText: Y.Text,
         doc: vscode.TextDocument,
         rootPath: string,
-        awareness: Awareness
+        awareness: Awareness,
+        private telemetryService?: ITelemetryService
     ) {
         this.yText = yText;
         this.doc = doc;
@@ -146,6 +148,8 @@ export class DocumentBinding {
                                 );
                             });
                     }, this);
+
+                    this.telemetryService?.recordEdit();
                 }
             );
 
@@ -409,6 +413,7 @@ export class DocumentBinding {
                         })),
                     };
                     this.awareness.setLocalStateField("cursor", cursorState);
+                    this.telemetryService?.recordCursorMove();
                 }
             );
     }

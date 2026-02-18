@@ -12,6 +12,7 @@ import { absoluteToRelative, relativeToAbsolute } from "../helpers/Utilities.js"
 import { Session } from "../session/Session.js";
 import { IFollowService } from "../interfaces/IFollowService.js";
 import { ISessionService } from "../interfaces/ISessionService.js";
+import { ITelemetryService } from "../interfaces/ITelemetryService.js";
 
 @injectable()
 export class FileSystemService implements IFileSystemService {
@@ -122,12 +123,20 @@ export class FileSystemService implements IFileSystemService {
 
         const followService = this.sessionService.get<IFollowService>("IFollowService");
 
+        let telemetryService: ITelemetryService | undefined;
+        try {
+            telemetryService = this.sessionService.get<ITelemetryService>("ITelemetryService");
+        } catch {
+            // telemetry not registered yet during early init – ok
+        }
+
         const binding = new DocumentBinding(
             followService,
             yText,
             doc,
             this.rootPath,
-            this.session.awareness
+            this.session.awareness,
+            telemetryService
         );
         this.bindings.set(relPath, binding);
     }
