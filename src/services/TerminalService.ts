@@ -14,6 +14,7 @@ import { GuestTerminalPty } from "../terminal/GuestTerminalPty.js";
 import { TerminalInfo } from "../models/TerminalInfo.js";
 import { TerminalProfileConfig } from "../terminal/TerminalProfileConfig.js";
 import { ShellProfile } from "../terminal/ShellProfile.js";
+import { ITelemetryService } from "../interfaces/ITelemetryService.js";
 
 /**
  * Yjs document keys used (per terminal with id `<id>`):
@@ -33,7 +34,8 @@ export class TerminalService implements ITerminalService {
 
     constructor(
         @inject("Session") private session: Session,
-        @inject("SessionInfo") private sessionInfo: SessionInfo
+        @inject("SessionInfo") private sessionInfo: SessionInfo,
+        @inject("ITelemetryService") private telemetryService: ITelemetryService
     ) {
         this.registry = this.session.doc.getMap<TerminalInfo>("terminal:registry");
 
@@ -123,6 +125,8 @@ export class TerminalService implements ITerminalService {
         this.terminalMap.set(id, terminal);
         terminal.show();
 
+        this.telemetryService.recordAction("share_terminal");
+
         vscode.window.showInformationMessage(
             "Terminal is now shared with collaborators."
         );
@@ -182,6 +186,8 @@ export class TerminalService implements ITerminalService {
         this.terminalMap.set(terminalId, terminal);
         terminal.show();
 
+        this.telemetryService.recordAction("join_terminal", { terminalId });
+
         vscode.window.showInformationMessage(
             `Joined ${entry.owner}'s shared terminal.`
         );
@@ -215,6 +221,8 @@ export class TerminalService implements ITerminalService {
 
         this.terminalMap.set(id, terminal);
         terminal.show();
+
+        this.telemetryService.recordAction("join_terminal", { terminalId: id });
     }
 
     async stopSharingTerminal(id?: string): Promise<void> {
@@ -262,6 +270,7 @@ export class TerminalService implements ITerminalService {
 
             // update registry
             this.registry.set(id, { ...entry, active: false });
+            this.telemetryService.recordAction("close_terminal", { terminalId: id });
             vscode.window.showInformationMessage("Stopped sharing terminal.");
         }
     }

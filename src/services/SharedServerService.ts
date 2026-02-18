@@ -11,6 +11,7 @@ import { SessionInfo } from "../session/SessionInfo.js";
 import { ServerInfo } from "../models/ServerInfo.js";
 import { TunnelResponse } from "../tunnel/TunnelResponse.js";
 import { TunnelRequest } from "../tunnel/TunnelRequest.js";
+import { ITelemetryService } from "../interfaces/ITelemetryService.js";
 
 /**
  *   "server:registry"           – Y.Map<ServerInfo>   shared-server catalogue
@@ -32,7 +33,8 @@ export class SharedServerService implements ISharedServerService {
 
     constructor(
         @inject("Session") private session: Session,
-        @inject("SessionInfo") private sessionInfo: SessionInfo
+        @inject("SessionInfo") private sessionInfo: SessionInfo,
+        @inject("ITelemetryService") private telemetryService: ITelemetryService
     ) {
         this.registry = this.session.doc.getMap<ServerInfo>("server:registry");
         this.registry.observe(() => {
@@ -82,6 +84,8 @@ export class SharedServerService implements ISharedServerService {
         });
 
         this.startHostTunnel(id, port);
+
+        this.telemetryService.recordAction("share_server");
 
         vscode.window.showInformationMessage(
             `Sharing server on port ${port} as "${label}"`
@@ -307,6 +311,7 @@ export class SharedServerService implements ISharedServerService {
 
         proxyServer.listen(localPort, () => {
             this.localProxies.set(serverId, proxyServer);
+            this.telemetryService.recordAction("join_server", { serverId });
             vscode.window.showInformationMessage(
                 `Connected to ${serverInfo.owner}'s server "${serverInfo.label}" at http://localhost:${localPort}`
             );
@@ -343,6 +348,7 @@ export class SharedServerService implements ISharedServerService {
         const entry = this.registry.get(id);
         if (entry) {
             this.registry.set(id, { ...entry, active: false });
+            this.telemetryService.recordAction("close_server", { serverId: id });
         }
 
         const hostCleanup = this.hostObservers.get(id);

@@ -3,11 +3,13 @@ import * as vscode from "vscode";
 import { IUndoRedoService } from "../interfaces/IUndoRedoService.js";
 import { inject, injectable } from "tsyringe";
 import { IFileSystemService } from "../interfaces/IFileSystemService.js";
+import { ITelemetryService } from "../interfaces/ITelemetryService.js";
 
 @injectable()
 export class UndoRedoService implements IUndoRedoService {
     constructor(
         @inject("IFileSystemService") private fileSystemService: IFileSystemService,
+        @inject("ITelemetryService") private telemetryService: ITelemetryService
     ) { }
 
     handleUndo() {
@@ -25,6 +27,8 @@ export class UndoRedoService implements IUndoRedoService {
         } else {
             vscode.commands.executeCommand("undo");
         }
+
+        this.telemetryService.recordAction("undo");
     }
 
     handleRedo() {
@@ -42,5 +46,7 @@ export class UndoRedoService implements IUndoRedoService {
         } else {
             vscode.commands.executeCommand("redo");
         }
+
+        this.telemetryService.recordAction("redo");
     }
 }

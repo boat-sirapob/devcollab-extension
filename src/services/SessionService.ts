@@ -30,6 +30,8 @@ import { ISharedServerService } from "../interfaces/ISharedServerService.js";
 import { SharedServerService } from "./SharedServerService.js";
 import { SharedServersViewModel } from "../ui/shared-servers-view/SharedServersViewModel.js";
 import { SharedTerminalsViewModel } from "../ui/shared-terminals-view/SharedTerminalsViewModel.js";
+import { ITelemetryService } from "../interfaces/ITelemetryService.js";
+import { TelemetryService } from "./TelemetryService.js";
 
 @injectable()
 export class SessionService implements ISessionService {
@@ -107,6 +109,10 @@ export class SessionService implements ISessionService {
             "ISharedServerService",
             SharedServerService
         );
+        this.sessionContainer.registerSingleton<ITelemetryService>(
+            "ITelemetryService",
+            TelemetryService
+        );
 
         // initialize viewmodels
         this.sessionContainer.registerSingleton<SessionInfoWebviewModel>(
@@ -172,6 +178,13 @@ export class SessionService implements ISessionService {
         terminalService.dispose();
         const sharedServerService = this.sessionContainer.resolve<ISharedServerService>("ISharedServerService");
         sharedServerService.dispose();
+
+        try {
+            const telemetryService = this.sessionContainer.resolve<ITelemetryService>("ITelemetryService");
+            telemetryService.dispose();
+        } catch {
+            // telemetry may not be registered yet
+        }
 
         this.sessionContainer?.clearInstances();
         this.sessionContainer = undefined;
@@ -311,6 +324,20 @@ export class SessionService implements ISessionService {
         vscode.window.showInformationMessage(
             `Copied room code ${code} to clipboard!`
         );
+
+        this.tryRecordAction("copy_room_code");
+    }
+
+    private tryRecordAction(action: string, extra?: Record<string, unknown>): void {
+        if (!this.hasSession()) {
+            return;
+        }
+        try {
+            const telemetry = this.get<ITelemetryService>("ITelemetryService");
+            telemetry.recordAction(action, extra);
+        } catch {
+            // telemetry not available – ignore
+        }
     }
 
     private async inputUsername(): Promise<string | undefined> {

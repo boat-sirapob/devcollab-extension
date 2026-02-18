@@ -8,6 +8,7 @@ import { v4 as uuidv4 } from "uuid";
 import { IAwarenessService } from "../interfaces/IAwarenessService.js";
 import { Mapper } from "../../shared/helpers/Mapper.js";
 import { ChatHistoryItemDto, ChatMessageDto } from "../../shared/dtos/ChatHistoryItemDto.js";
+import { ITelemetryService } from "../interfaces/ITelemetryService.js";
 
 @injectable()
 export class ChatService implements IChatService {
@@ -18,7 +19,8 @@ export class ChatService implements IChatService {
 
     constructor(
         @inject("Session") private session: Session,
-        @inject("IAwarenessService") private awarenessService: IAwarenessService
+        @inject("IAwarenessService") private awarenessService: IAwarenessService,
+        @inject("ITelemetryService") private telemetryService: ITelemetryService
     ) {
         this._chatHistory = this.session.doc.getArray("chat-history");
         this._chatHistory.observe((event: Y.YArrayEvent<ChatHistoryItemDto>) => {
@@ -56,5 +58,6 @@ export class ChatService implements IChatService {
         }
 
         this._chatHistory.push([Mapper.toChatHistoryItemDto(msg)]);
+        this.telemetryService.recordAction("chat_sent");
     }
 }

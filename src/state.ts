@@ -61,7 +61,7 @@ export class ExtensionState {
     }
 
     async test() {
-        console.log("test");
+        console.log("asdasdasd");
     }
 
     async hostSession() {
@@ -142,7 +142,6 @@ export class ExtensionState {
 
         const terminalService = this.sessionService.get<ITerminalService>("ITerminalService");
         terminalService.stopSharingTerminal(terminalInfo?.id);
-        vscode.window.showInformationMessage("Stopped sharing terminal.");
     }
 
     async shareServer() {
@@ -183,6 +182,5 @@ export class ExtensionState {
 
         const serverService = this.sessionService.get<ISharedServerService>("ISharedServerService");
         serverService.stopServer(serverInfo?.id);
-        vscode.window.showInformationMessage("Stopped sharing server.");
     }
 }
