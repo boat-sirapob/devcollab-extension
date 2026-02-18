@@ -11,6 +11,13 @@ export abstract class BaseWebviewProvider
     protected _view?: vscode.WebviewView;
     private pendingMessages: any[] = [];
 
+    private _onDidChangeViewVisibility = new vscode.EventEmitter<boolean>();
+    public readonly onDidChangeViewVisibility = this._onDidChangeViewVisibility.event;
+
+    public get isViewVisible(): boolean {
+        return this._view?.visible ?? false;
+    }
+
     abstract viewType: string;
     protected abstract viewParam: string;
 
@@ -25,6 +32,11 @@ export abstract class BaseWebviewProvider
 
         webviewView.onDidDispose(() => {
             this._view = undefined;
+            this._onDidChangeViewVisibility.fire(false);
+        });
+
+        webviewView.onDidChangeVisibility(() => {
+            this._onDidChangeViewVisibility.fire(webviewView.visible);
         });
 
         webviewView.webview.options = {

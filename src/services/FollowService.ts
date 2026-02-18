@@ -6,6 +6,7 @@ import { Awareness } from "y-protocols/awareness.js";
 import * as vscode from "vscode";
 import { Session } from "../session/Session.js";
 import { IFileSystemService } from "../interfaces/IFileSystemService.js";
+import { ITelemetryService } from "../interfaces/ITelemetryService.js";
 
 @injectable()
 export class FollowService implements IFollowService {
@@ -21,7 +22,8 @@ export class FollowService implements IFollowService {
 
     constructor(
         @inject("Session") private session: Session,
-        @inject("IFileSystemService") private fileSystemService: IFileSystemService
+        @inject("IFileSystemService") private fileSystemService: IFileSystemService,
+        @inject("ITelemetryService") private telemetryService: ITelemetryService
     ) { }
 
     dispose(): void {
@@ -53,6 +55,8 @@ export class FollowService implements IFollowService {
         ) {
             this.followingParticipant = null;
             this.endFollow(awareness);
+
+            this.telemetryService.recordAction("unfollow", { targetUser: participant.displayName });
 
             vscode.window.showInformationMessage(
                 `Stopped following ${participant.displayName}`
@@ -86,6 +90,9 @@ export class FollowService implements IFollowService {
                     }
                 }
             );
+
+            this.telemetryService.recordAction("follow", { targetUser: participant.displayName });
+
             vscode.window.showInformationMessage(
                 `Now following ${participant.displayName}`
             );

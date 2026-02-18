@@ -6,6 +6,7 @@ import { ITelemetryService } from "../interfaces/ITelemetryService.js";
 import { SessionInfo } from "../session/SessionInfo.js";
 import { Session } from "../session/Session.js";
 import { AwarenessState } from "../models/AwarenessState.js";
+import { SessionInfoWebviewProvider } from "../ui/session-info-webview/SessionInfoWebviewProvider.js";
 
 const IDLE_THRESHOLD_MS = 20_000; // 20s of no activity = idle
 
@@ -21,8 +22,17 @@ type TelemetryEventType =
     | "unfollow"
     | "share_terminal"
     | "join_terminal"
+    | "close_terminal"
     | "share_server"
-    | "join_server";
+    | "join_server"
+    | "close_server"
+    | "chat_sent"
+    | "edit_operation"
+    | "undo"
+    | "redo"
+    | "file_switch"
+    | "sidebar_open"
+    | "sidebar_close";
 
 interface TelemetryPayload {
     eventType: TelemetryEventType;
@@ -31,6 +41,22 @@ interface TelemetryPayload {
     participantType: string;
     username: string;
     [key: string]: unknown; // allow extra fields for summary
+}
+
+interface TelemetrySessionSummary extends Record<string, unknown> {
+    totalEdits: number;
+    cursorMoves: number;
+    fileSwitches: number;
+    tabSwitches: number;
+    sessionDurationMs: number;
+    idleTimeMs: number;
+    sidebarTimeMs: number;
+    followTimeMs: number;
+    sharedTerminalTimeMs: number;
+    sharedServerTimeMs: number;
+    chatMessagesSent: number;
+    undoCount: number;
+    redoCount: number;
 }
 
 @injectable()
@@ -45,11 +71,26 @@ export class TelemetryService implements ITelemetryService {
     private totalIdleMs = 0;
     private hasSentFirstEdit = false;
 
+    private sidebarTimeMs = 0;
+    private sidebarEnteredAt: number | null = null;
+    private followTimeMs = 0;
+    private followStartedAt: number | null = null;
+
+    private sharedTerminalTimeMs = 0;
+    private terminalJoinedAt: number | null = null;
+    private sharedServerTimeMs = 0;
+    private serverJoinedAt: number | null = null;
+
+    private chatMessagesSent = 0;
+    private undoCount = 0;
+    private redoCount = 0;
+
     private disposables: vscode.Disposable[] = [];
 
     constructor(
         @inject("Session") private session: Session,
-        @inject("SessionInfo") private sessionInfo: SessionInfo
+        @inject("SessionInfo") private sessionInfo: SessionInfo,
+        @inject("SessionInfoWebviewProvider") private sidebarProvider: SessionInfoWebviewProvider
     ) {
         const awarenessHandler = ({
             added,
@@ -81,9 +122,33 @@ export class TelemetryService implements ITelemetryService {
         this.disposables.push({ dispose: () => this.session.awareness.off("change", awarenessHandler) });
 
         this.disposables.push(
-            vscode.window.onDidChangeActiveTextEditor(() => {
+            vscode.window.onDidChangeActiveTextEditor((editor) => {
                 this.fileSwitchCount++;
                 this.markActivity();
+                if (editor) {
+                    void this.postEvent("file_switch", { fileName: vscode.workspace.asRelativePath(editor.document.uri) });
+                }
+            })
+        );
+
+        // Track time spent in the extension sidebar using view visibility
+        if (this.sidebarProvider.isViewVisible) {
+            this.sidebarEnteredAt = Date.now();
+        }
+        this.disposables.push(
+            this.sidebarProvider.onDidChangeViewVisibility((visible) => {
+                if (visible) {
+                    if (this.sidebarEnteredAt === null) {
+                        this.sidebarEnteredAt = Date.now();
+                    }
+                    void this.postEvent("sidebar_open");
+                } else {
+                    if (this.sidebarEnteredAt !== null) {
+                        this.sidebarTimeMs += Date.now() - this.sidebarEnteredAt;
+                        this.sidebarEnteredAt = null;
+                    }
+                    void this.postEvent("sidebar_close");
+                }
             })
         );
 
@@ -107,6 +172,8 @@ export class TelemetryService implements ITelemetryService {
             this.hasSentFirstEdit = true;
             void this.postEvent("first_edit");
         }
+
+        void this.postEvent("edit_operation");
     }
 
     recordCursorMove(): void {
@@ -116,23 +183,88 @@ export class TelemetryService implements ITelemetryService {
 
     recordAction(action: string, extra: Record<string, unknown> = {}): void {
         this.markActivity();
+
+        if (action === "follow") {
+            this.followStartedAt = Date.now();
+        } else if (action === "unfollow") {
+            if (this.followStartedAt !== null) {
+                this.followTimeMs += Date.now() - this.followStartedAt;
+                this.followStartedAt = null;
+            }
+        }
+
+        if (action === "share_terminal" || action === "join_terminal") {
+            this.terminalJoinedAt = Date.now();
+        } else if (action === "close_terminal") {
+            if (this.terminalJoinedAt !== null) {
+                this.sharedTerminalTimeMs += Date.now() - this.terminalJoinedAt;
+                this.terminalJoinedAt = null;
+            }
+        }
+
+        if (action === "share_server" || action === "join_server") {
+            this.serverJoinedAt = Date.now();
+        } else if (action === "close_server") {
+            if (this.serverJoinedAt !== null) {
+                this.sharedServerTimeMs += Date.now() - this.serverJoinedAt;
+                this.serverJoinedAt = null;
+            }
+        }
+
+        if (action === "chat_sent") {
+            this.chatMessagesSent++;
+        }
+
+        if (action === "undo") {
+            this.undoCount++;
+        } else if (action === "redo") {
+            this.redoCount++;
+        }
+
         void this.postEvent(action as TelemetryEventType, extra);
     }
 
     dispose(): void {
-        // Account for any trailing idle time
         this.markActivity();
+
+        if (this.sidebarEnteredAt !== null) {
+            this.sidebarTimeMs += Date.now() - this.sidebarEnteredAt;
+            this.sidebarEnteredAt = null;
+        }
+
+        if (this.followStartedAt !== null) {
+            this.followTimeMs += Date.now() - this.followStartedAt;
+            this.followStartedAt = null;
+        }
+
+        if (this.terminalJoinedAt !== null) {
+            this.sharedTerminalTimeMs += Date.now() - this.terminalJoinedAt;
+            this.terminalJoinedAt = null;
+        }
+
+        if (this.serverJoinedAt !== null) {
+            this.sharedServerTimeMs += Date.now() - this.serverJoinedAt;
+            this.serverJoinedAt = null;
+        }
 
         const sessionDurationMs = Date.now() - this.sessionStartTime;
 
-        void this.postEvent("session_summary", {
+        const summary: TelemetrySessionSummary = {
             totalEdits: this.editCount,
             cursorMoves: this.cursorMoveCount,
             fileSwitches: this.fileSwitchCount,
             tabSwitches: this.tabSwitchCount,
             sessionDurationMs,
             idleTimeMs: this.totalIdleMs,
-        });
+            sidebarTimeMs: this.sidebarTimeMs,
+            followTimeMs: this.followTimeMs,
+            sharedTerminalTimeMs: this.sharedTerminalTimeMs,
+            sharedServerTimeMs: this.sharedServerTimeMs,
+            chatMessagesSent: this.chatMessagesSent,
+            undoCount: this.undoCount,
+            redoCount: this.redoCount,
+        };
+        void this.postEvent("session_summary", summary);
 
         void this.postEvent("session_ended");
 

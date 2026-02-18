@@ -324,6 +324,20 @@ export class SessionService implements ISessionService {
         vscode.window.showInformationMessage(
             `Copied room code ${code} to clipboard!`
         );
+
+        this.tryRecordAction("copy_room_code");
+    }
+
+    private tryRecordAction(action: string, extra?: Record<string, unknown>): void {
+        if (!this.hasSession()) {
+            return;
+        }
+        try {
+            const telemetry = this.get<ITelemetryService>("ITelemetryService");
+            telemetry.recordAction(action, extra);
+        } catch {
+            // telemetry not available – ignore
+        }
     }
 
     private async inputUsername(): Promise<string | undefined> {

@@ -7,7 +7,6 @@ import { ISessionService } from "./interfaces/ISessionService.js";
 import { IUndoRedoService } from "./interfaces/IUndoRedoService.js";
 import { ISharedServerService } from "./interfaces/ISharedServerService.js";
 import { ITerminalService } from "./interfaces/ITerminalService.js";
-import { ITelemetryService } from "./interfaces/ITelemetryService.js";
 
 @injectable()
 export class ExtensionState {
@@ -49,7 +48,6 @@ export class ExtensionState {
 
     async copyRoomCode(roomCode?: string) {
         await this.sessionService.copyRoomCode(roomCode);
-        this.tryRecordAction("copy_room_code");
     }
 
     toggleFollow(p: SessionParticipant) {
@@ -59,9 +57,7 @@ export class ExtensionState {
         }
 
         const followService = this.sessionService.get<IFollowService>("IFollowService");
-        const wasFollowing = followService.followingParticipant?.clientId === p.clientId;
         followService.toggleFollow(p);
-        this.tryRecordAction(wasFollowing ? "unfollow" : "follow", { targetUser: p.displayName });
     }
 
     async test() {
@@ -116,7 +112,6 @@ export class ExtensionState {
 
         const terminalService = this.sessionService.get<ITerminalService>("ITerminalService");
         terminalService.shareTerminal();
-        this.tryRecordAction("share_terminal");
     }
 
     joinSharedTerminal() {
@@ -127,7 +122,6 @@ export class ExtensionState {
 
         const terminalService = this.sessionService.get<ITerminalService>("ITerminalService");
         terminalService.joinSharedTerminal();
-        this.tryRecordAction("join_terminal");
     }
 
     joinTerminalById(id: string) {
@@ -138,7 +132,6 @@ export class ExtensionState {
 
         const terminalService = this.sessionService.get<ITerminalService>("ITerminalService");
         terminalService.joinTerminalById(id);
-        this.tryRecordAction("join_terminal", { terminalId: id });
     }
 
     stopSharingTerminal(terminalInfo?: { id: string }) {
@@ -149,7 +142,6 @@ export class ExtensionState {
 
         const terminalService = this.sessionService.get<ITerminalService>("ITerminalService");
         terminalService.stopSharingTerminal(terminalInfo?.id);
-        vscode.window.showInformationMessage("Stopped sharing terminal.");
     }
 
     async shareServer() {
@@ -160,7 +152,6 @@ export class ExtensionState {
 
         const serverService = this.sessionService.get<ISharedServerService>("ISharedServerService");
         await serverService.shareServer();
-        this.tryRecordAction("share_server");
     }
 
     async joinSharedServer() {
@@ -171,7 +162,6 @@ export class ExtensionState {
 
         const serverService = this.sessionService.get<ISharedServerService>("ISharedServerService");
         await serverService.joinSharedServer();
-        this.tryRecordAction("join_server");
     }
 
     async joinServerById(id: string) {
@@ -182,7 +172,6 @@ export class ExtensionState {
 
         const serverService = this.sessionService.get<ISharedServerService>("ISharedServerService");
         await serverService.joinServerById(id);
-        this.tryRecordAction("join_server", { serverId: id });
     }
 
     stopSharedServer(serverInfo?: { id: string }) {
@@ -193,19 +182,5 @@ export class ExtensionState {
 
         const serverService = this.sessionService.get<ISharedServerService>("ISharedServerService");
         serverService.stopServer(serverInfo?.id);
-        vscode.window.showInformationMessage("Stopped sharing server.");
-    }
-
-    // telemetry helper
-    private tryRecordAction(action: string, extra?: Record<string, unknown>): void {
-        if (!this.sessionService.hasSession()) {
-            return;
-        }
-        try {
-            const telemetry = this.sessionService.get<ITelemetryService>("ITelemetryService");
-            telemetry.recordAction(action, extra);
-        } catch {
-            // telemetry not available – ignore
-        }
     }
 }
