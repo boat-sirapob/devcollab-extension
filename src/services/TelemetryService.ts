@@ -1,7 +1,8 @@
 import * as vscode from "vscode";
+import * as fs from "fs";
+import * as path from "path";
 import { inject, injectable } from "tsyringe";
 
-import { Config } from "../config/Config.js";
 import { ITelemetryService } from "../interfaces/ITelemetryService.js";
 import { SessionInfo } from "../session/SessionInfo.js";
 import { Session } from "../session/Session.js";
@@ -86,12 +87,19 @@ export class TelemetryService implements ITelemetryService {
     private redoCount = 0;
 
     private disposables: vscode.Disposable[] = [];
+    private logFilePath: string;
 
     constructor(
         @inject("Session") private session: Session,
         @inject("SessionInfo") private sessionInfo: SessionInfo,
-        @inject("SessionInfoWebviewProvider") private sidebarProvider: SessionInfoWebviewProvider
+        @inject("SessionInfoWebviewProvider") private sidebarProvider: SessionInfoWebviewProvider,
+        @inject("ExtensionContext") private context: vscode.ExtensionContext
     ) {
+        // Ensure storage directory exists and set up log file
+        const storageDir = this.context.globalStorageUri.fsPath;
+        fs.mkdirSync(storageDir, { recursive: true });
+        this.logFilePath = path.join(storageDir, "telemetry.jsonl");
+
         const awarenessHandler = ({
             added,
             removed,
@@ -108,14 +116,14 @@ export class TelemetryService implements ITelemetryService {
                 }
                 const state = states.get(id) as AwarenessState | undefined;
                 const name = state?.user?.displayName ?? String(id);
-                void this.postEvent("guest_join", { guestName: name, guestClientId: id });
+                this.postEvent("guest_join", { guestName: name, guestClientId: id });
             }
 
             for (const id of removed) {
                 if (id === this.session.awareness.clientID) {
                     continue;
                 }
-                void this.postEvent("guest_disconnect", { guestClientId: id });
+                this.postEvent("guest_disconnect", { guestClientId: id });
             }
         };
         this.session.awareness.on("change", awarenessHandler);
@@ -126,7 +134,7 @@ export class TelemetryService implements ITelemetryService {
                 this.fileSwitchCount++;
                 this.markActivity();
                 if (editor) {
-                    void this.postEvent("file_switch", { fileName: vscode.workspace.asRelativePath(editor.document.uri) });
+                    this.postEvent("file_switch", { fileName: vscode.workspace.asRelativePath(editor.document.uri) });
                 }
             })
         );
@@ -141,13 +149,13 @@ export class TelemetryService implements ITelemetryService {
                     if (this.sidebarEnteredAt === null) {
                         this.sidebarEnteredAt = Date.now();
                     }
-                    void this.postEvent("sidebar_open");
+                    this.postEvent("sidebar_open");
                 } else {
                     if (this.sidebarEnteredAt !== null) {
                         this.sidebarTimeMs += Date.now() - this.sidebarEnteredAt;
                         this.sidebarEnteredAt = null;
                     }
-                    void this.postEvent("sidebar_close");
+                    this.postEvent("sidebar_close");
                 }
             })
         );
@@ -161,7 +169,7 @@ export class TelemetryService implements ITelemetryService {
             })
         );
 
-        void this.postEvent("session_started");
+        this.postEvent("session_started");
     }
 
     recordEdit(): void {
@@ -170,10 +178,10 @@ export class TelemetryService implements ITelemetryService {
 
         if (!this.hasSentFirstEdit) {
             this.hasSentFirstEdit = true;
-            void this.postEvent("first_edit");
+            this.postEvent("first_edit");
         }
 
-        void this.postEvent("edit_operation");
+        this.postEvent("edit_operation");
     }
 
     recordCursorMove(): void {
@@ -221,7 +229,7 @@ export class TelemetryService implements ITelemetryService {
             this.redoCount++;
         }
 
-        void this.postEvent(action as TelemetryEventType, extra);
+        this.postEvent(action as TelemetryEventType, extra);
     }
 
     dispose(): void {
@@ -264,9 +272,9 @@ export class TelemetryService implements ITelemetryService {
             undoCount: this.undoCount,
             redoCount: this.redoCount,
         };
-        void this.postEvent("session_summary", summary);
+        this.postEvent("session_summary", summary);
 
-        void this.postEvent("session_ended");
+        this.postEvent("session_ended");
 
         for (const d of this.disposables) {
             d.dispose();
@@ -283,13 +291,10 @@ export class TelemetryService implements ITelemetryService {
         this.lastActivityTime = now;
     }
 
-    private async postEvent(
+    private postEvent(
         eventType: TelemetryEventType,
         extra: Record<string, unknown> = {}
-    ): Promise<void> {
-        const baseUrl = Config.getHttpServerUrl().replace(/\/$/, "");
-        const endpoint = `${baseUrl}/telemetry/session`;
-
+    ): void {
         const payload: TelemetryPayload = {
             eventType,
             timestamp: new Date().toISOString(),
@@ -300,13 +305,22 @@ export class TelemetryService implements ITelemetryService {
         };
 
         try {
-            await fetch(endpoint, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-            });
+            fs.appendFileSync(this.logFilePath, JSON.stringify(payload) + "\n");
         } catch (err) {
-            console.warn("[telemetry] Failed to send event", eventType, err);
+            console.warn("[telemetry] Failed to write event to log file", eventType, err);
         }
+
+        // // POST to server
+        // const baseUrl = Config.getHttpServerUrl().replace(/\/$/, "");
+        // const endpoint = `${baseUrl}/telemetry/session`;
+        // try {
+        //     await fetch(endpoint, {
+        //         method: "POST",
+        //         headers: { "Content-Type": "application/json" },
+        //         body: JSON.stringify(payload),
+        //     });
+        // } catch (err) {
+        //     console.warn("[telemetry] Failed to send event", eventType, err);
+        // }
     }
 }
