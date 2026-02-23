@@ -30,9 +30,21 @@ export class FileSystemService implements IFileSystemService {
         this.rootPath = session.rootPath;
     }
 
-    setupFileChangeHandling() {
+    async setupFileChangeHandling() {
         this.workspaceMap.observe(this.fileChangeHandler);
         this.setupFileWatcher();
+
+        for (const [key, yText] of this.workspaceMap.entries()) {
+            if (!this.bindings.has(key)) {
+                await this.createFile(key);
+                await this.bindDocument(key, yText);
+            }
+        }
+
+        for (const binding of this.bindings.values()) {
+            await binding.remoteChangeQueue;
+            await FileSystemUtilities.saveFile(binding.doc.uri);
+        }
     }
 
     setupFileWatcher() {

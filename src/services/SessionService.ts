@@ -147,7 +147,7 @@ export class SessionService implements ISessionService {
         );
 
         const fileSystemService = this.sessionContainer!.resolve<IFileSystemService>("IFileSystemService");
-        fileSystemService.setupFileChangeHandling();
+        await fileSystemService.setupFileChangeHandling();
 
         // For hosts, bind initial files
         if (this.session!.participantType === "Host") {
