@@ -346,6 +346,7 @@ export class SessionService implements ISessionService {
             value: this.persistenceService.getSavedUsername() ?? "",
             placeHolder:
                 "Enter your display name for this session (empty to cancel)",
+            ignoreFocusOut: true,
         });
     }
 
@@ -499,6 +500,7 @@ export class SessionService implements ISessionService {
         const roomCode = await vscode.window.showInputBox({
             prompt: "Enter the room code for the collaboration session you want to join",
             placeHolder: "Room Code",
+            ignoreFocusOut: true,
         });
         if (!roomCode) {
             vscode.window.showInformationMessage(
