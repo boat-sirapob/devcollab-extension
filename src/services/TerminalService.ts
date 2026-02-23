@@ -15,6 +15,7 @@ import { TerminalInfo } from "../models/TerminalInfo.js";
 import { TerminalProfileConfig } from "../terminal/TerminalProfileConfig.js";
 import { ShellProfile } from "../terminal/ShellProfile.js";
 import { ITelemetryService } from "../interfaces/ITelemetryService.js";
+import { IAwarenessService } from "../interfaces/IAwarenessService.js";
 
 /**
  * Yjs document keys used (per terminal with id `<id>`):
@@ -28,6 +29,7 @@ export class TerminalService implements ITerminalService {
     private terminalMap = new Map<string, vscode.Terminal>();
     private registry: Y.Map<TerminalInfo>;
     private terminalCloseListener: vscode.Disposable;
+    private participantRemovedListener: vscode.Disposable;
 
     private _onRegistryChange = new vscode.EventEmitter<void>();
     readonly onRegistryChange: vscode.Event<void> = this._onRegistryChange.event;
@@ -35,12 +37,17 @@ export class TerminalService implements ITerminalService {
     constructor(
         @inject("Session") private session: Session,
         @inject("SessionInfo") private sessionInfo: SessionInfo,
-        @inject("ITelemetryService") private telemetryService: ITelemetryService
+        @inject("ITelemetryService") private telemetryService: ITelemetryService,
+        @inject("IAwarenessService") private awarenessService: IAwarenessService,
     ) {
         this.registry = this.session.doc.getMap<TerminalInfo>("terminal:registry");
 
         this.registry.observe(() => {
             this._onRegistryChange.fire();
+        });
+
+        this.participantRemovedListener = this.awarenessService.onParticipantRemoved((username: string) => {
+            this.removeTerminalsByOwner(username);
         });
 
         this.terminalCloseListener = vscode.window.onDidCloseTerminal(this.handleTerminalClose);
@@ -275,6 +282,28 @@ export class TerminalService implements ITerminalService {
         }
     }
 
+    removeTerminalsByOwner(owner: string): void {
+        const toDeactivate: string[] = [];
+        this.registry.forEach((entry, id) => {
+            if (entry.active && entry.owner === owner) {
+                toDeactivate.push(id);
+            }
+        });
+
+        for (const id of toDeactivate) {
+            const entry = this.registry.get(id);
+            if (entry) {
+                this.registry.set(id, { ...entry, active: false });
+            }
+
+            const terminal = this.terminalMap.get(id);
+            if (terminal) {
+                terminal.dispose();
+                this.terminalMap.delete(id);
+            }
+        }
+    }
+
     private generateTerminalId(): string {
         return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     }
@@ -460,6 +489,7 @@ export class TerminalService implements ITerminalService {
     }
 
     dispose(): void {
+        this.participantRemovedListener.dispose();
         this.terminalCloseListener.dispose();
         for (const terminal of this.terminalMap.values()) {
             terminal.dispose();

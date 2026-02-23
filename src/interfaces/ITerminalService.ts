@@ -9,5 +9,6 @@ export interface ITerminalService {
     joinTerminalById(id: string): void;
     stopSharingTerminal(id?: string): Promise<void>;
     getSharedTerminals(): TerminalInfo[];
+    removeTerminalsByOwner(owner: string): void;
     dispose(): void;
 }

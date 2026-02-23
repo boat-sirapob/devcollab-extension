@@ -12,6 +12,7 @@ import { ServerInfo } from "../models/ServerInfo.js";
 import { TunnelResponse } from "../tunnel/TunnelResponse.js";
 import { TunnelRequest } from "../tunnel/TunnelRequest.js";
 import { ITelemetryService } from "../interfaces/ITelemetryService.js";
+import { IAwarenessService } from "../interfaces/IAwarenessService.js";
 
 /**
  *   "server:registry"           – Y.Map<ServerInfo>   shared-server catalogue
@@ -28,17 +29,24 @@ export class SharedServerService implements ISharedServerService {
 
     private responseObservers = new Map<string, () => void>();
 
+    private participantRemovedListener: vscode.Disposable;
+
     private _onRegistryChange = new vscode.EventEmitter<void>();
     readonly onRegistryChange: vscode.Event<void> = this._onRegistryChange.event;
 
     constructor(
         @inject("Session") private session: Session,
         @inject("SessionInfo") private sessionInfo: SessionInfo,
-        @inject("ITelemetryService") private telemetryService: ITelemetryService
+        @inject("ITelemetryService") private telemetryService: ITelemetryService,
+        @inject("IAwarenessService") private awarenessService: IAwarenessService,
     ) {
         this.registry = this.session.doc.getMap<ServerInfo>("server:registry");
         this.registry.observe(() => {
             this._onRegistryChange.fire();
+        });
+
+        this.participantRemovedListener = this.awarenessService.onParticipantRemoved((username: string) => {
+            this.removeServersByOwner(username);
         });
     }
 
@@ -367,6 +375,19 @@ export class SharedServerService implements ISharedServerService {
         if (resCleanup) {
             resCleanup();
             this.responseObservers.delete(id);
+        }
+    }
+
+    removeServersByOwner(owner: string): void {
+        const toDeactivate: string[] = [];
+        this.registry.forEach((entry, id) => {
+            if (entry.active && entry.owner === owner) {
+                toDeactivate.push(id);
+            }
+        });
+
+        for (const id of toDeactivate) {
+            this.stopServer(id);
         }
     }
 

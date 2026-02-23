@@ -9,7 +9,8 @@ export interface IAwarenessService {
     awareness: Awareness;
 
     readonly onParticipantsDidChange: vscode.Event<void>;
-    readonly onParticipantDisconnect: vscode.Event<void>;
+    readonly onHostLeave: vscode.Event<void>;
+    readonly onParticipantRemoved: vscode.Event<string>;
 
     get currentUser(): SessionParticipant;
 
