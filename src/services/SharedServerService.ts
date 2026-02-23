@@ -62,6 +62,7 @@ export class SharedServerService implements ISharedServerService {
         const portStr = await vscode.window.showInputBox({
             prompt: "Enter the local port number to share",
             placeHolder: "e.g. 3000",
+            ignoreFocusOut: true,
             validateInput: (v) => {
                 const n = parseInt(v, 10);
                 if (isNaN(n) || n < 1 || n > 65535) {
@@ -79,6 +80,7 @@ export class SharedServerService implements ISharedServerService {
             (await vscode.window.showInputBox({
                 prompt: "Enter a label for this server (optional)",
                 placeHolder: `localhost:${port}`,
+                ignoreFocusOut: true,
             })) || `localhost:${port}`;
 
         const id = this.generateId();
