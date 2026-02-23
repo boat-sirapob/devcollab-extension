@@ -138,7 +138,7 @@ export class SessionService implements ISessionService {
         awarenessService.onParticipantsDidChange(() => {
             this._onDidChange.fire();
         });
-        awarenessService.onParticipantDisconnect(
+        awarenessService.onHostLeave(
             async () => {
                 if (this.session?.participantType === "Guest") {
                     await this.disconnectSession();

@@ -9,5 +9,6 @@ export interface ISharedServerService {
     joinServerById(id: string): Promise<void>;
     stopServer(id?: string): void;
     getSharedServers(): ServerInfo[];
+    removeServersByOwner(owner: string): void;
     dispose(): void;
 }

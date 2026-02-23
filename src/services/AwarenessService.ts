@@ -30,8 +30,11 @@ export class AwarenessService implements IAwarenessService {
     private _onParticipantsDidChange = new vscode.EventEmitter<void>();
     readonly onParticipantsDidChange = this._onParticipantsDidChange.event;
 
-    private _onParticipantDisconnect = new vscode.EventEmitter<void>();
-    readonly onParticipantDisconnect = this._onParticipantDisconnect.event;
+    private _onHostLeave = new vscode.EventEmitter<void>();
+    readonly onHostLeave = this._onHostLeave.event;
+
+    private _onParticipantRemoved = new vscode.EventEmitter<string>();
+    readonly onParticipantRemoved = this._onParticipantRemoved.event;
 
     constructor(
         @inject("SessionInfo") private sessionInfo: SessionInfo,
@@ -139,6 +142,10 @@ export class AwarenessService implements IAwarenessService {
                     vscode.window.showInformationMessage(
                         `User disconnected: ${existingParticipant?.displayName ?? id}`
                     );
+
+                    if (existingParticipant) {
+                        this._onParticipantRemoved.fire(existingParticipant.displayName);
+                    }
                 });
 
                 if (updated.length > 0 || added.length > 0 || removed.length > 0) {
@@ -161,7 +168,7 @@ export class AwarenessService implements IAwarenessService {
                         "Host has ended the session. Disconnecting..."
                     );
                     this.session.provider.disconnect();
-                    this._onParticipantDisconnect.fire();
+                    this._onHostLeave.fire();
                 }
             }
         );
