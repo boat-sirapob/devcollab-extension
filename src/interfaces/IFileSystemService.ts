@@ -8,7 +8,7 @@ export interface IFileSystemService {
     bindings: Map<string, DocumentBinding>;
     workspaceMap: Y.Map<Y.Text>;
 
-    setupFileChangeHandling(): void;
+    setupFileChangeHandling(): Promise<void>;
     setupFileWatcher(): void;
     fileChangeHandler: (event: Y.YMapEvent<Y.Text>) => Promise<void>;
 
