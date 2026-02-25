@@ -209,6 +209,7 @@ export class DocumentBinding {
             for (const [, decorations] of this.decorationTypeMap.entries()) {
                 editor.setDecorations(decorations.selection, []);
                 editor.setDecorations(decorations.cursor, []);
+                editor.setDecorations(decorations.followingCursor, []);
             }
 
             // set new decorations
